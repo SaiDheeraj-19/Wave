@@ -1,0 +1,7 @@
+{
+  "name": "Onyx Music",
+  "description": "A production-grade, offline-first music streaming platform with Hi-Res audio support and intelligent discovery.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

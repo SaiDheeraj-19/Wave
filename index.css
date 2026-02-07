@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --onyx-black: #0E0E10;
+    --onyx-surface: #1C1C1E;
+    --onyx-accent: #A855F7;
+    --onyx-indigo: #6366F1;
+    --onyx-text: #FFFFFF;
+    --onyx-text-dim: #A1A1AA;
+    --audio-energy: 0;
+  }
+}
+
+body {
+  background-color: var(--onyx-black);
+  color: var(--onyx-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* HIGH-FIDELITY GRADIENTS */
+.gradient-purple-indigo {
+  background: linear-gradient(135deg, var(--onyx-accent), var(--onyx-indigo));
+}
+
+.surface-glass {
+  background: rgba(28, 28, 30, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* ANIMATIONS */
+@keyframes slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-breathing-surface {
+  transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: scale(calc(1 + (var(--audio-energy) * 0.03)));
+}
+
+/* CUSTOM SLIDER */
+input[type="range"].onyx-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type="range"].onyx-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 0;
+  height: 0;
+}
+
+.progress-active {
+  height: 4px;
+  background: var(--onyx-accent);
+  border-radius: 2px;
+  position: relative;
+}
+
+.progress-active::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  top: -4px;
+  width: 12px;
+  height: 12px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--onyx-accent);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
