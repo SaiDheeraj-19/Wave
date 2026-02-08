@@ -67,7 +67,7 @@ export const getHomePageData = async () => {
         const trending = await trendingRes.json();
 
         const allowedLanguages = ['english', 'hindi', 'telugu', 'tamil'];
-        const unwantedTerms = ['punjabi', 'bhojpuri', 'haryanvi'];
+        const unwantedTerms = ['punjabi', 'bhojpuri', 'haryanvi', 'nursery', 'rhymes', 'kids', 'children', 'kids classic'];
 
         const filterSongs = (songs: any[]) => {
             return songs.filter(song => {
