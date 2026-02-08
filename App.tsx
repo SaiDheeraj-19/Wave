@@ -655,6 +655,7 @@ const App: React.FC = () => {
           onToggleLike={handleToggleLike}
           isLiked={appState.likedSongs.some(t => t.id === appState.currentTrack?.id)}
           lyricsFirstMode={appState.lyricsFirstMode}
+          onPlayTrack={handlePlayTrack}
         />
       )}
 

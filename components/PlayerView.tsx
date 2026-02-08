@@ -17,11 +17,12 @@ interface PlayerViewProps {
   onToggleLike: (track: Track) => void;
   isLiked: boolean;
   lyricsFirstMode: boolean;
+  onPlayTrack: (track: Track) => void;
 }
 
 const PlayerView: React.FC<PlayerViewProps> = ({
   track, state, progress, duration, queue, lyrics, onClose, onTogglePlay, onSeek, onNext, onPrev, onToggleDownload, isDownloaded,
-  onToggleLike, isLiked, lyricsFirstMode
+  onToggleLike, isLiked, lyricsFirstMode, onPlayTrack
 }) => {
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState<'none' | 'all' | 'one'>('none');
@@ -213,7 +214,11 @@ const PlayerView: React.FC<PlayerViewProps> = ({
           </div>
           <div className="space-y-4">
             {queue.map((t, i) => (
-              <div key={t.id + i} className={`flex items-center gap-4 p-4 rounded-3xl transition-all ${t.id === track.id ? 'bg-primary/20 border-2 border-primary/40' : 'bg-white/5 border-2 border-transparent'}`}>
+              <div
+                key={t.id + i}
+                onClick={() => onPlayTrack(t)}
+                className={`flex items-center gap-4 p-4 rounded-3xl transition-all cursor-pointer hover:bg-white/10 ${t.id === track.id ? 'bg-primary/20 border-2 border-primary/40' : 'bg-white/5 border-2 border-transparent'}`}
+              >
                 <div className="size-14 rounded-2xl overflow-hidden">
                   <img src={t.artwork} className="w-full h-full object-cover" />
                 </div>
