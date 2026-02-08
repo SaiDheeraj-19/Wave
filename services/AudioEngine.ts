@@ -142,7 +142,18 @@ class AudioEngine {
   }
 
   public async play(track: Track, crossfade: number = 0, silence: number = 0) {
-    if (this.ctx.state === 'suspended') await this.ctx.resume();
+    if (this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume();
+      } catch (e) {
+        console.warn("AudioContext resume failed", e);
+      }
+    }
+
+    if (!track.audioUrl) {
+      console.error("AudioEngine: No audio URL provided for track", track);
+      throw new Error("Invalid Track URL");
+    }
 
     // Clear any pending silence
     if (this.silenceTimeout) clearTimeout(this.silenceTimeout);
@@ -185,11 +196,24 @@ class AudioEngine {
       }
     };
 
+
     if (silence > 0) {
       this.onStateChange(PlaybackState.BUFFERING);
-      this.silenceTimeout = setTimeout(executePlay, silence * 1000);
+      this.silenceTimeout = setTimeout(() => {
+        executePlay().catch(e => {
+          console.error("Delayed playback failed", e);
+          // Attempt recovery
+          setTimeout(() => executePlay(), 500);
+        });
+      }, silence * 1000);
     } else {
-      await executePlay();
+      try {
+        await executePlay();
+      } catch (e) {
+        // Immediate retry for race conditions
+        console.warn("Immediate playback failed, retrying...", e);
+        setTimeout(() => executePlay(), 500);
+      }
     }
   }
 

@@ -1,0 +1,12 @@
+{
+    "rewrites": [
+        {
+            "source": "/api/saavn/api.php",
+            "destination": "/api/saavn"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
+        }
+    ]
+}

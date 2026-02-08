@@ -248,13 +248,16 @@ const App: React.FC = () => {
 
     let finalTrack = { ...track };
 
-    if (!finalTrack.audioUrl || finalTrack.audioUrl.length < 10) {
+    // Force fresh fetch for all streaming tracks to ensure correct audio URL mapping
+    if (!finalTrack.isDownloaded && (!finalTrack.audioUrl || finalTrack.audioUrl.length < 10 || !finalTrack.audioUrl.includes('cf.saavncdn.com'))) {
       try {
         const { getTrackDetails } = await import('./services/SaavnService');
         const details = await getTrackDetails(track.id);
-        if (details && details.audioUrl) {
-          finalTrack = details;
-        } else {
+
+        // Critical check: Ensure ID match to prevent metadata drift
+        if (details && details.audioUrl && (details.id === track.id || details.title === track.title)) {
+          finalTrack = { ...finalTrack, ...details }; // Merge to keep any existing context
+        } else if (!finalTrack.audioUrl) {
           addNotification("STREAM ERROR", "Audio source unavailable or restricted.", "ALERT");
           return;
         }

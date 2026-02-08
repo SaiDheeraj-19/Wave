@@ -34,7 +34,7 @@ const mapSongToTrack = (song: any): Track => {
     if (song.encrypted_media_url || song.more_info?.encrypted_media_url) {
         audioUrl = decryptUrl(song.encrypted_media_url || song.more_info?.encrypted_media_url);
         if (audioUrl) {
-            audioUrl = audioUrl.replace('_96.mp4', '_320.mp4');
+            audioUrl = audioUrl.replace('_96.mp4', '_320.mp4').replace('http://', 'https://');
         }
     }
 
@@ -158,7 +158,12 @@ export const getTrackDetails = async (id: string): Promise<Track | null> => {
     try {
         const response = await fetch(`/api/saavn/api.php?__call=song.getDetails&pids=${id}&_format=json`);
         const data = await response.json();
-        const songData = data[id];
+
+        // Robust data extraction: Try exact ID, then fallback to first value if object
+        let songData = data[id];
+        if (!songData && typeof data === 'object') {
+            songData = Object.values(data)[0];
+        }
 
         if (!songData) return null;
         return mapSongToTrack(songData);

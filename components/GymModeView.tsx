@@ -61,6 +61,8 @@ const GymModeView: React.FC<GymModeViewProps> = ({ appState, onPlayTrack, onExit
         'Sunday': 'Active Resurrection'
     };
 
+
+
     // COVEN SYNC LOGIC (Simulation via LocalStorage for Democracy)
     useEffect(() => {
         if (covenRole === 'HOST' && appState.currentTrack) {
@@ -332,6 +334,8 @@ const GymModeView: React.FC<GymModeViewProps> = ({ appState, onPlayTrack, onExit
                     </div>
                 </section>
 
+
+
                 {/* TRACK LISTING */}
                 <section className="space-y-6">
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between border-b border-red-900/30 pb-4 gap-4">
@@ -398,7 +402,10 @@ const GymModeView: React.FC<GymModeViewProps> = ({ appState, onPlayTrack, onExit
             {/* VAMPIRE PLAYER DOCK */}
             {appState.currentTrack && (
                 <div className="absolute bottom-6 left-4 right-4 md:left-10 md:right-10 z-[100] animate-in slide-in-from-bottom duration-700">
-                    <div className="bg-[#0f0000] backdrop-blur-3xl rounded-[3rem] p-4 pr-8 border-2 border-red-900/50 shadow-[0_0_80px_rgba(220,38,38,0.6)] flex items-center justify-between gap-6 relative overflow-hidden group">
+                    <div
+                        onClick={onOpenFull}
+                        className="bg-[#0f0000] backdrop-blur-3xl rounded-[3rem] p-4 pr-8 border-2 border-red-900/50 shadow-[0_0_80px_rgba(220,38,38,0.6)] flex items-center justify-between gap-6 relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all hover:bg-red-950/20"
+                    >
 
                         {/* Blood Drip overlay */}
                         <div className="absolute top-0 right-10 w-4 h-12 bg-red-600/80 rounded-b-full blur-[2px] animate-pulse" />
@@ -423,14 +430,14 @@ const GymModeView: React.FC<GymModeViewProps> = ({ appState, onPlayTrack, onExit
                         </div>
 
                         <div className="flex items-center gap-4 relative z-10">
-                            <button onClick={onPrev} className="text-red-900 hover:text-red-500 transition-colors active:scale-90"><span className="material-symbols-outlined !text-4xl">skip_previous</span></button>
+                            <button onClick={(e) => { e.stopPropagation(); if (onPrev) onPrev(); }} className="text-red-900 hover:text-red-500 transition-colors active:scale-90"><span className="material-symbols-outlined !text-4xl">skip_previous</span></button>
                             <button
-                                onClick={onTogglePlay}
+                                onClick={(e) => { e.stopPropagation(); if (onTogglePlay) onTogglePlay(); }}
                                 className="size-16 rounded-full bg-red-950 text-red-500 flex items-center justify-center hover:bg-red-900/80 hover:text-white transition-all hover:scale-110 shadow-[0_0_40px_rgba(220,38,38,0.5)] active:scale-95 border-2 border-red-600"
                             >
                                 <span className="material-symbols-outlined !text-4xl fill-1">{appState.playbackState === PlaybackState.PLAYING ? 'pause' : 'play_arrow'}</span>
                             </button>
-                            <button onClick={onNext} className="text-red-900 hover:text-red-500 transition-colors active:scale-90"><span className="material-symbols-outlined !text-4xl">skip_next</span></button>
+                            <button onClick={(e) => { e.stopPropagation(); if (onNext) onNext(); }} className="text-red-900 hover:text-red-500 transition-colors active:scale-90"><span className="material-symbols-outlined !text-4xl">skip_next</span></button>
                         </div>
                     </div>
                 </div>
