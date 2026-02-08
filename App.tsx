@@ -208,6 +208,19 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Lock screen event listeners
+    const onNext = () => handleNext();
+    const onPrev = () => handlePrev();
+    window.addEventListener('audio-skip-next', onNext);
+    window.addEventListener('audio-skip-prev', onPrev);
+
+    return () => {
+      window.removeEventListener('audio-skip-next', onNext);
+      window.removeEventListener('audio-skip-prev', onPrev);
+    };
+  }, [handleNext, handlePrev]);
+
+  useEffect(() => {
     let raf: number;
     const animate = () => {
       if (audioEngineRef.current) {

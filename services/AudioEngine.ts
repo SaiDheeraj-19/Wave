@@ -260,11 +260,39 @@ class AudioEngine {
 
   private setupMediaSession() {
     if ('mediaSession' in navigator) {
-      navigator.mediaSession.setActionHandler('play', () => this.resume());
-      navigator.mediaSession.setActionHandler('pause', () => this.pause());
-      navigator.mediaSession.setActionHandler('previoustrack', () => { });
-      navigator.mediaSession.setActionHandler('nexttrack', () => { });
+      navigator.mediaSession.setActionHandler('play', () => {
+        console.log("MediaSession: play");
+        this.resume();
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        console.log("MediaSession: pause");
+        this.pause();
+      });
+      // These will be overridden by App.tsx through callbacks if needed
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        console.log("MediaSession: previous");
+        window.dispatchEvent(new CustomEvent('audio-skip-prev'));
+      });
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        console.log("MediaSession: next");
+        window.dispatchEvent(new CustomEvent('audio-skip-next'));
+      });
+
+      // Update playback state for lock screen
+      this.audioA.addEventListener('play', () => navigator.mediaSession.playbackState = 'playing');
+      this.audioA.addEventListener('pause', () => navigator.mediaSession.playbackState = 'paused');
+      this.audioB.addEventListener('play', () => navigator.mediaSession.playbackState = 'playing');
+      this.audioB.addEventListener('pause', () => navigator.mediaSession.playbackState = 'paused');
     }
+
+    // Lifecycle handler for iOS backgrounding
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+    });
   }
 
   private updateMediaSession(track: Track) {
