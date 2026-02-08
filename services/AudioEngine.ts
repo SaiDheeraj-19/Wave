@@ -20,6 +20,8 @@ class AudioEngine {
   private silentKeeper: HTMLAudioElement | null = null;
   private heartbeat: AudioBufferSourceNode | null = null;
   private wakeLock: any = null;
+  private worker: Worker | null = null;
+  private isMobile: boolean = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   // Analysis
   private analyzer: AnalyserNode;
@@ -109,6 +111,22 @@ class AudioEngine {
 
     this.setupMediaSession();
     this.setupKeepAlive();
+    this.setupWorker();
+  }
+
+  private setupWorker() {
+    try {
+      this.worker = new Worker('/audio-worker.js');
+      this.worker.onmessage = () => {
+        // High-frequency 'tickle' to keep the AudioContext memory hot
+        if (this.ctx.state === 'suspended' && this.currentTrack && !this.getActiveAudio().paused) {
+          this.ctx.resume().catch(() => { });
+        }
+      };
+      this.worker.postMessage('start');
+    } catch (e) {
+      console.warn("Background worker failed to initialize", e);
+    }
   }
 
   private setupKeepAlive() {
@@ -130,6 +148,8 @@ class AudioEngine {
     this.silentKeeper.loop = true;
     this.silentKeeper.id = "onyx-silent-keeper";
     this.silentKeeper.style.display = "none";
+    this.silentKeeper.setAttribute('playsinline', '');
+    this.silentKeeper.setAttribute('preload', 'auto');
     document.body.appendChild(this.silentKeeper);
 
     // Wake Lock to prevent CPU sleep
@@ -216,30 +236,40 @@ class AudioEngine {
 
       this.currentTrack = track;
       nextElement.src = track.audioUrl;
+      nextElement.setAttribute('playsinline', '');
+      nextElement.setAttribute('preload', 'auto');
 
-      // Mood Stability: Always use a small ramp (0.5s) if no crossfade is provided
+      // iOS 18 Magic: Update MediaSession BEFORE calling play
+      this.updateMediaSession(track);
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'playing';
+      }
+
+      // Mood Stability
       const rampTime = crossfade > 0 ? crossfade : 0.5;
       nextGain.gain.setValueAtTime(0, this.ctx.currentTime);
 
       try {
         await nextElement.play();
+        if (this.silentKeeper) this.silentKeeper.play().catch(() => { });
+
         nextGain.gain.linearRampToValueAtTime(1, this.ctx.currentTime + rampTime);
 
         if (crossfade > 0) {
           prevGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + rampTime);
           setTimeout(() => {
-            prevElement.pause();
-            prevElement.src = "";
+            if (this.activeElement !== (prevElement === this.audioA ? 'A' : 'B')) {
+              prevElement.pause();
+              prevElement.src = "";
+            }
           }, rampTime * 1000);
         } else {
-          // Mandatory 200ms overlap to keep iOS Media Session alive
+          // Continuous Stream Protocol: 500ms overlap to keep session hot
           setTimeout(() => {
             prevElement.pause();
             prevElement.src = "";
-          }, 200);
+          }, 500);
         }
-
-        this.updateMediaSession(track);
       } catch (e) {
         console.error("AudioEngine playback failed:", e);
         throw e; // Propagate error to UI
