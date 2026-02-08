@@ -1,8 +1,8 @@
 {
     "rewrites": [
         {
-            "source": "/api/saavn/api.php",
-            "destination": "/api/saavn"
+            "source": "/api/saavn/:path*",
+            "destination": "https://www.jiosaavn.com/:path*"
         },
         {
             "source": "/(.*)",
