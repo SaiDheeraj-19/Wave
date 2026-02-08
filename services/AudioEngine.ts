@@ -18,6 +18,7 @@ class AudioEngine {
   private gainA: GainNode;
   private gainB: GainNode;
   private silentKeeper: HTMLAudioElement | null = null;
+  private heartbeat: AudioBufferSourceNode | null = null;
   private wakeLock: any = null;
 
   // Analysis
@@ -111,12 +112,27 @@ class AudioEngine {
   }
 
   private setupKeepAlive() {
-    // 1-second silent WAV to trick Safari into keeping the process alive
+    // Heartbeat: Silent buffer looping inside the Context to prevent idle suspension
+    try {
+      const buffer = this.ctx.createBuffer(1, 1, 22050);
+      this.heartbeat = this.ctx.createBufferSource();
+      this.heartbeat.buffer = buffer;
+      this.heartbeat.loop = true;
+      this.heartbeat.connect(this.ctx.destination);
+      this.heartbeat.start();
+    } catch (e) {
+      console.warn("Heartbeat initialization failed", e);
+    }
+
+    // Silent Keeper: DOM-attached audio element to maintain Media Session focus
     const silentWav = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAP8A/wD/AA==";
     this.silentKeeper = new Audio(silentWav);
     this.silentKeeper.loop = true;
+    this.silentKeeper.id = "onyx-silent-keeper";
+    this.silentKeeper.style.display = "none";
+    document.body.appendChild(this.silentKeeper);
 
-    // Wake Lock to prevent CPU sleep (where supported)
+    // Wake Lock to prevent CPU sleep
     if ('wakeLock' in navigator) {
       const requestWakeLock = async () => {
         try {
@@ -125,6 +141,7 @@ class AudioEngine {
           console.warn("WakeLock request failed", err);
         }
       };
+
       document.addEventListener('visibilitychange', () => {
         if (this.wakeLock !== null && document.visibilityState === 'visible') {
           requestWakeLock();
@@ -215,8 +232,11 @@ class AudioEngine {
             prevElement.src = "";
           }, rampTime * 1000);
         } else {
-          prevElement.pause();
-          prevElement.src = "";
+          // Mandatory 200ms overlap to keep iOS Media Session alive
+          setTimeout(() => {
+            prevElement.pause();
+            prevElement.src = "";
+          }, 200);
         }
 
         this.updateMediaSession(track);
@@ -249,16 +269,22 @@ class AudioEngine {
 
   public pause() {
     this.getActiveAudio().pause();
+    if (this.silentKeeper) this.silentKeeper.pause();
   }
 
   public resume() {
     this.getActiveAudio().play();
+    if (this.silentKeeper) this.silentKeeper.play().catch(() => { });
+    if (this.ctx.state === 'suspended') this.ctx.resume();
   }
 
   public toggle() {
     const audio = this.getActiveAudio();
-    if (audio.paused) audio.play();
-    else audio.pause();
+    if (audio.paused) {
+      this.resume();
+    } else {
+      this.pause();
+    }
   }
 
   public seek(time: number) {
@@ -325,6 +351,19 @@ class AudioEngine {
         }
       }
     });
+
+    // iOS 18 "Tickle" Protocol: Keep the context hot
+    setInterval(() => {
+      if (this.activeElement && !this.getActiveAudio().paused) {
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+        // Force the silent keeper to stay in sync
+        if (this.silentKeeper && this.silentKeeper.paused) {
+          this.silentKeeper.play().catch(() => { });
+        }
+      }
+    }, 1000);
   }
 
   private updateMediaSession(track: Track) {
