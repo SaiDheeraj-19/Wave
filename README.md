@@ -1,11 +1,4 @@
 
-<div align="center">
-  <img src="https://i.ibb.co/6yqJc5S/ONYX-BANNER-DARK.png" alt="ONYX: Music for the Undead" width="100%">
-  <br/>
-  <h1>🩸 ONYX: Vampire Audio Protocol 🩸</h1>
-  <p><i>"The ritual begins when the beat drops."</i></p>
-</div>
-
 ---
 
 ## 🌑 Overview
