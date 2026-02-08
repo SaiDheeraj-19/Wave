@@ -130,9 +130,14 @@ class AudioEngine {
   }
 
   private setupKeepAlive() {
-    // Heartbeat: Silent buffer looping inside the Context to prevent idle suspension
+    // 1. Context Heartbeat (Internal) - Now with low-level noise to keep energy high
     try {
-      const buffer = this.ctx.createBuffer(1, 1, 22050);
+      const buffer = this.ctx.createBuffer(1, 44100, 44100);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        // -90dB White Noise (Humanly silent, but 'Active' for OS power management)
+        data[i] = (Math.random() * 2 - 1) * 0.00003;
+      }
       this.heartbeat = this.ctx.createBufferSource();
       this.heartbeat.buffer = buffer;
       this.heartbeat.loop = true;
@@ -245,18 +250,20 @@ class AudioEngine {
         navigator.mediaSession.playbackState = 'playing';
       }
 
-      // Mood Stability
+      // Use setTargetAtTime for robust ramping on mobile
       const rampTime = crossfade > 0 ? crossfade : 0.5;
+      nextGain.gain.cancelScheduledValues(this.ctx.currentTime);
       nextGain.gain.setValueAtTime(0, this.ctx.currentTime);
 
       try {
         await nextElement.play();
         if (this.silentKeeper) this.silentKeeper.play().catch(() => { });
 
-        nextGain.gain.linearRampToValueAtTime(1, this.ctx.currentTime + rampTime);
+        // Soft ramp up (linearRamp can fail if context was recently resumed)
+        nextGain.gain.setTargetAtTime(1, this.ctx.currentTime, rampTime / 3);
 
         if (crossfade > 0) {
-          prevGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + rampTime);
+          prevGain.gain.setTargetAtTime(0, this.ctx.currentTime, rampTime / 3);
           setTimeout(() => {
             if (this.activeElement !== (prevElement === this.audioA ? 'A' : 'B')) {
               prevElement.pause();
