@@ -190,78 +190,7 @@ const App: React.FC = () => {
     }));
   }, []);
 
-  useEffect(() => {
-    const handleStateChange = (state: PlaybackState) => {
-      setAppState(prev => ({ ...prev, playbackState: state }));
-    };
-    const handleProgress = (time: number) => {
-      setAppState(prev => ({ ...prev, progress: time }));
-    };
-    const handleDuration = (dur: number) => {
-      setAppState(prev => ({ ...prev, duration: dur }));
-    };
-
-    audioEngineRef.current = new AudioEngine(handleStateChange, handleProgress, handleDuration);
-
-    const hour = new Date().getHours();
-    setUiMorph(hour > 5 && hour < 18 ? 'morning-morph' : 'night-morph');
-  }, []);
-
-  useEffect(() => {
-    // Lock screen event listeners
-    const onNext = () => handleNext();
-    const onPrev = () => handlePrev();
-    window.addEventListener('audio-skip-next', onNext);
-    window.addEventListener('audio-skip-prev', onPrev);
-
-    return () => {
-      window.removeEventListener('audio-skip-next', onNext);
-      window.removeEventListener('audio-skip-prev', onPrev);
-    };
-  }, [handleNext, handlePrev]);
-
-  useEffect(() => {
-    let raf: number;
-    const animate = () => {
-      if (audioEngineRef.current) {
-        const energy = (audioEngineRef.current.getEnergy() || 0) / 255;
-        document.documentElement.style.setProperty('--audio-energy', energy.toString());
-      }
-      raf = requestAnimationFrame(animate);
-    };
-    animate();
-
-    const checkAudioOutput = async () => {
-      if (!navigator.mediaDevices?.enumerateDevices) return;
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const outputs = devices.filter(d => d.kind === 'audiooutput');
-        const defaultOutput = outputs.find(d => d.deviceId === 'default') || outputs[0];
-
-        if (defaultOutput) {
-          const label = defaultOutput.label || 'Headphones/Speaker';
-          setAppState(prev => ({ ...prev, audioDevice: label as any }));
-          if (label) addNotification("DEVICE SYNCED", `Audio output routed to: ${label}`, "INFO");
-        }
-      } catch (e) {
-        console.warn("Device enumeration failed", e);
-      }
-    };
-
-    checkAudioOutput();
-    if (navigator.mediaDevices) {
-      navigator.mediaDevices.ondevicechange = checkAudioOutput;
-    }
-
-    return () => cancelAnimationFrame(raf);
-  }, [addNotification]);
-
-  const formatSessionTimeSeconds = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
+  // HANDLERS
   const handlePlayTrack = useCallback(async (track: Track, newQueue?: Track[]) => {
     if (!audioEngineRef.current) return;
 
@@ -340,8 +269,6 @@ const App: React.FC = () => {
       }
     })();
 
-    console.log("Playing track:", finalTrack.title, "URL:", finalTrack.audioUrl);
-
     setIsDjVisible(false);
     setTimeout(() => setIsDjVisible(true), 1200);
 
@@ -352,8 +279,6 @@ const App: React.FC = () => {
         console.error("Playback execution error", err);
         addNotification("PLAYBACK FAILED", "Stream connection reset or blocked.", "ALERT");
       }
-    } else {
-      console.error("AudioEngine NOT initialized!");
     }
   }, [appState.crossfadeDuration, appState.silenceBetweenSongs, addNotification]);
 
@@ -387,6 +312,87 @@ const App: React.FC = () => {
   const handleSeek = useCallback((time: number) => {
     audioEngineRef.current?.seek(time);
   }, []);
+
+  // EFFECTS
+  useEffect(() => {
+    const handleStateChange = (state: PlaybackState) => {
+      setAppState(prev => ({ ...prev, playbackState: state }));
+    };
+    const handleProgress = (time: number) => {
+      setAppState(prev => ({ ...prev, progress: time }));
+    };
+    const handleDuration = (dur: number) => {
+      setAppState(prev => ({ ...prev, duration: dur }));
+    };
+
+    audioEngineRef.current = new AudioEngine(handleStateChange, handleProgress, handleDuration);
+
+    const hour = new Date().getHours();
+    setUiMorph(hour > 5 && hour < 18 ? 'morning-morph' : 'night-morph');
+  }, []);
+
+  useEffect(() => {
+    // Lock screen event listeners
+    const onNext = () => handleNext();
+    const onPrev = () => handlePrev();
+    window.addEventListener('audio-skip-next', onNext);
+    window.addEventListener('audio-skip-prev', onPrev);
+
+    return () => {
+      window.removeEventListener('audio-skip-next', onNext);
+      window.removeEventListener('audio-skip-prev', onPrev);
+    };
+  }, [handleNext, handlePrev]);
+
+  useEffect(() => {
+    let raf: number;
+    const animate = () => {
+      if (audioEngineRef.current) {
+        const energy = (audioEngineRef.current.getEnergy() || 0) / 255;
+        document.documentElement.style.setProperty('--audio-energy', energy.toString());
+      }
+      raf = requestAnimationFrame(animate);
+    };
+    animate();
+
+    const checkAudioOutput = async () => {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const outputs = devices.filter(d => d.kind === 'audiooutput');
+        const defaultOutput = outputs.find(d => d.deviceId === 'default') || outputs[0];
+
+        if (defaultOutput) {
+          const label = defaultOutput.label || 'Headphones/Speaker';
+          setAppState(prev => ({ ...prev, audioDevice: label as any }));
+          if (label) addNotification("DEVICE SYNCED", `Audio output routed to: ${label}`, "INFO");
+        }
+      } catch (e) {
+        console.warn("Device enumeration failed", e);
+      }
+    };
+
+    checkAudioOutput();
+    if (navigator.mediaDevices) {
+      navigator.mediaDevices.ondevicechange = checkAudioOutput;
+    }
+
+    return () => cancelAnimationFrame(raf);
+  }, [addNotification]);
+
+  // SYNC EQ & NORMALIZATION
+  useEffect(() => {
+    if (audioEngineRef.current) {
+      audioEngineRef.current.setEQ(appState.eqSettings.bands);
+      audioEngineRef.current.setNormalization(appState.loudnessNormalization);
+    }
+  }, [appState.eqSettings, appState.loudnessNormalization]);
+
+  const formatSessionTimeSeconds = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const handleToggleGym = useCallback(() => {
     setAppState(prev => {

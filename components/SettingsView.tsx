@@ -190,17 +190,42 @@ const SettingsView: React.FC<SettingsViewProps> = ({ appState, setAppState, audi
                         ))}
                     </div>
 
-                    {/* Visual Bands */}
-                    <div className="flex justify-between items-end h-24 pt-4">
+                    {/* Visual & Interactive Bands */}
+                    <div className="flex justify-between items-end h-32 pt-4 gap-4">
                         {appState.eqSettings.bands.map((gain, i) => (
-                            <div key={i} className="flex flex-col items-center gap-2 flex-1">
-                                <div className="w-1 bg-white/10 rounded-full h-full relative overflow-hidden">
+                            <div key={i} className="flex flex-col items-center gap-2 flex-1 h-full">
+                                <div className="w-2 bg-white/5 rounded-full h-full relative group/band">
+                                    <input
+                                        type="range"
+                                        min="-10"
+                                        max="10"
+                                        step="1"
+                                        value={gain}
+                                        onChange={(e) => {
+                                            const newBands = [...appState.eqSettings.bands];
+                                            newBands[i] = parseInt(e.target.value);
+                                            setAppState(prev => ({
+                                                ...prev,
+                                                eqSettings: { ...prev.eqSettings, preset: 'Custom', bands: newBands }
+                                            }));
+                                            audioEngine?.setEQ(newBands);
+                                        }}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 [writing-mode:bt-lr] appearance-slider-vertical"
+                                        style={{ WebkitAppearance: 'slider-vertical' } as any}
+                                    />
                                     <div
-                                        className="absolute bottom-0 w-full bg-primary transition-all duration-500 shadow-[0_0_15px_rgba(255,255,255,0.3)]"
+                                        className="absolute bottom-0 w-full bg-primary/40 rounded-full transition-all duration-300"
                                         style={{ height: `${50 + (gain * 5)}%` }}
                                     />
+                                    <div
+                                        className="absolute w-4 h-1 bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)] left-1/2 -translate-x-1/2 rounded-full transition-all duration-300 border border-white/20"
+                                        style={{ bottom: `calc(${50 + (gain * 5)}% - 2px)` }}
+                                    />
                                 </div>
-                                <span className="text-[7px] font-black text-white/20 italic">{gain}dB</span>
+                                <span className="text-[7px] font-black text-white/40 italic uppercase tracking-tighter">
+                                    {i === 0 ? '60' : i === 1 ? '230' : i === 2 ? '910' : i === 3 ? '3.6k' : '14k'}
+                                </span>
+                                <span className="text-[8px] font-black text-primary italic">{gain > 0 ? `+${gain}` : gain}dB</span>
                             </div>
                         ))}
                     </div>

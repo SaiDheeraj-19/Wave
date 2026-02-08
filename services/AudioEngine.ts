@@ -128,6 +128,7 @@ class AudioEngine {
   }
 
   public getEnergy(): number {
+    if (this.ctx.state === 'suspended') return 0;
     this.analyzer.getByteFrequencyData(this.freqData as any);
     let sum = 0;
     for (let i = 0; i < this.freqData.length; i++) {
@@ -137,6 +138,7 @@ class AudioEngine {
   }
 
   public getSpectrum(): Uint8Array {
+    if (this.ctx.state === 'suspended') return new Uint8Array(this.analyzer.frequencyBinCount);
     this.analyzer.getByteFrequencyData(this.freqData as any);
     return this.freqData;
   }
@@ -242,6 +244,7 @@ class AudioEngine {
   }
 
   public setEQ(bands: number[]) {
+    this.ctx.resume();
     bands.forEach((gain, i) => {
       if (this.eqBands[i]) {
         this.eqBands[i].gain.setTargetAtTime(gain, this.ctx.currentTime, 0.1);
@@ -250,6 +253,7 @@ class AudioEngine {
   }
 
   public setNormalization(enabled: boolean) {
+    this.ctx.resume();
     const threshold = enabled ? -24 : 0;
     this.normalizer.threshold.setTargetAtTime(threshold, this.ctx.currentTime, 0.1);
   }
