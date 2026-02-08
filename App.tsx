@@ -103,26 +103,25 @@ const App: React.FC = () => {
     gymSeeds: ['The Weeknd', 'XXXTentacion', 'Phonk', 'Kendrick Lamar', 'NEFFEX', 'Hardstyle'],
     notifications: [],
     audioDevice: 'Unknown',
-    currentUser: null
+    currentUser: { email: 'Guest@wave.ai', password: '' }
   });
 
   const audioEngineRef = useRef<AudioEngine | null>(null);
 
-  // AUTH PERSISTENCE
+  // AUTH PERSISTENCE (Disabled for Guest Mode)
   useEffect(() => {
     try {
       const savedUser = localStorage.getItem('onyx_active_user');
       if (savedUser) {
         const user = JSON.parse(savedUser);
-        // Load their data
         const allData = JSON.parse(localStorage.getItem('onyx_user_data') || '{}');
         const userData = allData[user.email];
 
         setAppState(prev => ({
           ...prev,
-          ...userData, // Hydrate user preferences
+          ...userData,
           currentUser: user,
-          playbackState: PlaybackState.IDLE // Always start idle
+          playbackState: PlaybackState.IDLE
         }));
       }
     } catch (e) {
@@ -135,11 +134,10 @@ const App: React.FC = () => {
     if (appState.currentUser) {
       const timer = setTimeout(() => {
         const allData = JSON.parse(localStorage.getItem('onyx_user_data') || '{}');
-        // We strip out transient state like playback status, progress, etc.
         const { playbackState, progress, duration, currentTrack, ...stateToSave } = appState;
         allData[appState.currentUser!.email] = stateToSave;
         localStorage.setItem('onyx_user_data', JSON.stringify(allData));
-      }, 2000); // Debounce save
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [appState]);
@@ -147,7 +145,6 @@ const App: React.FC = () => {
 
   const handleLogin = (user: any) => {
     localStorage.setItem('onyx_active_user', JSON.stringify(user));
-
     const allData = JSON.parse(localStorage.getItem('onyx_user_data') || '{}');
     if (allData[user.email]) {
       setAppState(prev => ({ ...prev, ...allData[user.email], currentUser: user }));
@@ -160,11 +157,10 @@ const App: React.FC = () => {
     localStorage.removeItem('onyx_active_user');
     setAppState(prev => ({
       ...prev,
-      currentUser: null,
+      currentUser: { email: 'Guest@wave.ai', password: '' },
       activeTab: 'home',
       currentTrack: null
     }));
-    window.location.reload();
   };
 
   const addNotification = useCallback((title: string, message: string, type: 'INFO' | 'GYM' | 'UPDATE' | 'ALERT' = 'INFO') => {
@@ -200,7 +196,6 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // VISUALIZATION LOOP & DEVICE DETECTION
     let raf: number;
     const animate = () => {
       if (audioEngineRef.current) {
@@ -215,7 +210,6 @@ const App: React.FC = () => {
       if (!navigator.mediaDevices?.enumerateDevices) return;
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        // Try to identify active output (default)
         const outputs = devices.filter(d => d.kind === 'audiooutput');
         const defaultOutput = outputs.find(d => d.deviceId === 'default') || outputs[0];
 
@@ -248,18 +242,16 @@ const App: React.FC = () => {
 
     let finalTrack = { ...track };
 
-    // Force fresh fetch for all streaming tracks to ensure correct audio URL mapping
     if (!finalTrack.isDownloaded && (!finalTrack.audioUrl || finalTrack.audioUrl.length < 10 || !finalTrack.audioUrl.includes('cf.saavncdn.com'))) {
       try {
         const { getTrackDetails } = await import('./services/SaavnService');
         const details = await getTrackDetails(track.id);
 
-        // Critical check: Ensure ID match to prevent metadata drift
         const sameId = String(details.id) === String(track.id);
         const sameTitle = details.title.toLowerCase().trim() === track.title.toLowerCase().trim();
 
         if (details && details.audioUrl && (sameId || sameTitle)) {
-          finalTrack = { ...finalTrack, ...details }; // Merge to keep any existing context
+          finalTrack = { ...finalTrack, ...details };
         } else if (!finalTrack.audioUrl) {
           addNotification("STREAM ERROR", "Audio source unavailable or restricted.", "ALERT");
           return;
@@ -294,17 +286,13 @@ const App: React.FC = () => {
         currentTrack: finalTrack,
         recentlyPlayed: updatedRecent,
         queue: finalQueue,
-        currentLyrics: null, // Reset for new track
-        energyDebt: prev.isGymMode && (finalTrack.bpm && finalTrack.bpm < 120) ? prev.energyDebt + 30 : Math.max(0, prev.energyDebt - 15)
+        currentLyrics: null,
       };
     });
 
-    // ASYNC ASSET DISCOVERY (LYRICS & RELATED TRACKS)
     (async () => {
       try {
         const { getLyrics, getRecommendations } = await import('./services/SaavnService');
-
-        // Parallel Discovery
         const [lyrics, recommendations] = await Promise.all([
           getLyrics(finalTrack.id),
           getRecommendations(finalTrack.id)
@@ -313,14 +301,11 @@ const App: React.FC = () => {
         if (lyrics || (recommendations && recommendations.length > 0)) {
           setAppState(prev => {
             if (prev.currentTrack?.id !== finalTrack.id) return prev;
-
             let updatedQueue = [...prev.queue];
             if (recommendations && recommendations.length > 0 && !prev.antiAlgorithmMode) {
-              // filter out existing
               const related = recommendations.filter(r => !updatedQueue.some(q => q.id === r.id)).slice(0, 10);
               updatedQueue = [...updatedQueue, ...related];
             }
-
             return {
               ...prev,
               currentLyrics: lyrics || prev.currentLyrics,
@@ -380,35 +365,23 @@ const App: React.FC = () => {
       const enteringGym = !prev.isGymMode;
       let newStats = { ...prev.stats };
       let newStartTime = prev.gymSessionStartTime;
-
-      // Resume State Variables
       let resumeTrack = prev.lastNormalTrack;
       let resumeProgress = prev.lastNormalProgress;
       let currentTrack = prev.currentTrack;
 
       if (enteringGym) {
-        // Entering: Save current state
         resumeTrack = prev.currentTrack;
         resumeProgress = prev.progress;
-
-        // ENTERING logic
         newStartTime = Date.now();
         setGymSkips(0);
-
-        // Clear current playback for fresh gym start
         currentTrack = null;
       } else {
-        // Exiting: Logic
         if (prev.gymSessionStartTime) {
           const sessionSeconds = Math.floor((Date.now() - prev.gymSessionStartTime) / 1000);
           newStats.totalGymTime += sessionSeconds;
-
-          // Trigger report directly via state
           setReportDuration(formatSessionTimeSeconds(sessionSeconds));
           setShowReport(true);
         }
-
-        // Restore Normal Mode Track if it exists
         if (resumeTrack) {
           currentTrack = resumeTrack;
         }
@@ -426,29 +399,19 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // VAMPIRE MODE TRANSITION EFFECT
   const prevGymModeRef = useRef(false);
   useEffect(() => {
     if (prevGymModeRef.current !== appState.isGymMode) {
-      // TRANSITION DETECTED
       if (appState.isGymMode) {
-        // ENTERING
         if (audioEngineRef.current) audioEngineRef.current.pause();
-
-        // Play Combat Sound
         const audio = new Audio('https://www.soundjay.com/weapon/sounds/sword-unsheathe-1.mp3');
         audio.volume = 0.6;
         audio.play().catch(e => console.warn("Audio play failed", e));
       } else {
-        // EXITING
         if (audioEngineRef.current) audioEngineRef.current.pause();
-
-        // RESUME NORMAL TRACK LOGIC
         if (appState.currentTrack) {
           const resumeTrack = appState.currentTrack;
-          const resumeProgress = appState.lastNormalProgress; // Access via state or ref if needed? 
-          // Note: appState is fresh here because useEffect triggered on change
-
+          const resumeProgress = appState.lastNormalProgress;
           setTimeout(() => {
             if (audioEngineRef.current) {
               audioEngineRef.current.play(resumeTrack).then(() => {
@@ -467,21 +430,15 @@ const App: React.FC = () => {
     }
   }, [appState.isGymMode, appState.currentTrack, appState.lastNormalProgress]);
 
-  // AUTO-ADVANCE LOGIC
   useEffect(() => {
     if (appState.playbackState === PlaybackState.IDLE && appState.currentTrack) {
       handleNext();
     }
   }, [appState.playbackState, handleNext, appState.currentTrack]);
 
-  // AUTO-NOTIFY ON GYM MODE
   useEffect(() => {
     if (appState.isGymMode) {
-      addNotification(
-        "BEAST MODE ENGAGED",
-        "GYM PROTOCOL ACTIVE: High-BPM selection and energy monitoring initialized.",
-        "GYM"
-      );
+      addNotification("BEAST MODE ENGAGED", "GYM PROTOCOL ACTIVE.", "GYM");
     }
   }, [appState.isGymMode, addNotification]);
 
@@ -489,25 +446,13 @@ const App: React.FC = () => {
     setAppState(prev => {
       const isDownloaded = prev.downloads.some(t => t.id === track.id);
       let newDownloads = [...prev.downloads];
-
       if (isDownloaded) {
         newDownloads = newDownloads.filter(t => t.id !== track.id);
       } else {
         newDownloads.push({ ...track, isDownloaded: true });
+        setTimeout(() => addNotification("ASSET SECURED", `${track.title} downloaded.`, "INFO"), 0);
       }
-
-      // Notification Trigger
-      if (!isDownloaded) {
-        // We use a timeout to avoid strict mode double-invoke issues in dev
-        setTimeout(() => {
-          addNotification("ASSET SECURED", `${track.title} downloaded to offline vault.`, "INFO");
-        }, 0);
-      }
-
-      return {
-        ...prev,
-        downloads: newDownloads
-      };
+      return { ...prev, downloads: newDownloads };
     });
   }, [addNotification]);
 
@@ -515,19 +460,13 @@ const App: React.FC = () => {
     setAppState(prev => {
       const isLiked = prev.likedSongs.some(t => t.id === track.id);
       let newLiked = [...prev.likedSongs];
-
       if (isLiked) {
         newLiked = newLiked.filter(t => t.id !== track.id);
       } else {
         newLiked.push(track);
-        // Debounced notification to avoid spam
-        setTimeout(() => addNotification("PREFERENCE LOGGED", "Track added to neural favorites.", "INFO"), 0);
+        setTimeout(() => addNotification("PREFERENCE LOGGED", "Track added to favorites.", "INFO"), 0);
       }
-
-      return {
-        ...prev,
-        likedSongs: newLiked
-      };
+      return { ...prev, likedSongs: newLiked };
     });
   }, [addNotification]);
 
@@ -547,7 +486,7 @@ const App: React.FC = () => {
 
   const handleClearRecentlyPlayed = useCallback(() => {
     setAppState(prev => ({ ...prev, recentlyPlayed: [] }));
-    addNotification("MEMORY WIPED", "Recent history cleared from neural banks.", "INFO");
+    addNotification("MEMORY WIPED", "History cleared.", "INFO");
   }, [addNotification]);
 
   const renderView = () => {
@@ -564,39 +503,17 @@ const App: React.FC = () => {
         />
       );
       case 'browse': return (
-        <BrowseView
-          onPlayTrack={handlePlayTrack}
-          onPlayNext={handlePlayNext}
-          onSelectPlaylist={() => { }}
-        />
+        <BrowseView onPlayTrack={handlePlayTrack} onPlayNext={handlePlayNext} onSelectPlaylist={() => { }} />
       );
-      case 'search': return (
-        <SearchView onPlayTrack={handlePlayTrack} onPlayNext={handlePlayNext} />
-      );
-      case 'mixer': return (
-        <DjMixer
-          appState={appState}
-          setAppState={setAppState}
-          audioEngine={audioEngineRef.current}
-        />
-      );
-      case 'library': return (
-        <LibraryView
-          onPlayTrack={handlePlayTrack}
-          onPlayNext={handlePlayNext}
-          appState={appState}
-        />
-      );
+      case 'search': return <SearchView onPlayTrack={handlePlayTrack} onPlayNext={handlePlayNext} />;
+      case 'mixer': return <DjMixer appState={appState} setAppState={setAppState} audioEngine={audioEngineRef.current} />;
+      case 'library': return <LibraryView onPlayTrack={handlePlayTrack} onPlayNext={handlePlayNext} appState={appState} />;
       case 'analytics': return <AnalyticsView appState={appState} />;
       case 'settings': return <SettingsView appState={appState} setAppState={setAppState} audioEngine={audioEngineRef.current} />;
       case 'profile': return <AccountView appState={appState} setAppState={setAppState} />;
       default: return null;
     }
   };
-
-  if (!appState.currentUser) {
-    return <AuthView onLogin={handleLogin} />;
-  }
 
   return (
     <div className={`min-h-screen relative bg-onyx-black transition-all duration-[1s] flex flex-col md:flex-row ${uiMorph}`}>
@@ -628,17 +545,13 @@ const App: React.FC = () => {
               onClick={handleToggleGym}
               className="w-full relative h-24 rounded-[2rem] bg-[#0a0000] border-2 border-red-900/40 flex items-center justify-center gap-4 group overflow-hidden shadow-[0_0_50px_rgba(153,27,27,0.2)] hover:shadow-[0_0_80px_rgba(220,38,38,0.6)] transition-all duration-700 hover:scale-[1.02] active:scale-95 hover:border-red-600"
             >
-              {/* Blood Background Effect */}
               <div className="absolute inset-0 bg-gradient-to-b from-red-950/20 via-black to-red-950/20 opacity-60" />
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-red-900/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
-
-              {/* Floating Particles/Dust (CSS tricks would be needed for true particles, sticking to gradients for now) */}
               <div className="absolute inset-0 pointer-events-none overflow-hidden">
                 <span className="absolute top-1/2 left-1/2 text-2xl animate-bat-1 opacity-0 group-hover:opacity-100 transition-opacity" style={{ animationDuration: '3s' }}>🦇</span>
                 <span className="absolute top-1/3 left-1/3 text-xl animate-bat-2 opacity-0 group-hover:opacity-100 transition-opacity delay-100" style={{ animationDuration: '4s' }}>🦇</span>
                 <span className="absolute top-2/3 left-2/3 text-3xl animate-bat-3 opacity-0 group-hover:opacity-100 transition-opacity delay-200" style={{ animationDuration: '2.5s' }}>🦇</span>
               </div>
-
               <div className="relative z-10 flex flex-col items-center">
                 <div className="flex items-center gap-3 mb-1">
                   <span className={`material-symbols-outlined !text-4xl transition-all duration-500 drop-shadow-[0_0_10px_rgba(255,0,0,0.8)] ${appState.isGymMode ? 'text-white animate-pulse' : 'text-red-700 group-hover:text-red-500'}`}>
@@ -678,7 +591,6 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content Area */}
       <main className="flex-1 relative z-10 animate-in fade-in duration-1000 overflow-x-hidden md:max-w-7xl md:mx-auto w-full">
         {renderView()}
       </main>
@@ -697,7 +609,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Mini Player - ADAPTIVE DESIGN */}
       <MiniPlayer
         track={appState.currentTrack}
         state={appState.playbackState}
@@ -708,7 +619,6 @@ const App: React.FC = () => {
         onPrev={handlePrev}
       />
 
-      {/* Bottom Navigation for Mobile ONLY */}
       <div className="md:hidden">
         <Navigation
           activeTab={appState.activeTab}
