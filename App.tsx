@@ -252,15 +252,12 @@ const App: React.FC = () => {
 
     let finalTrack = { ...track };
 
-    if (!finalTrack.isDownloaded && (!finalTrack.audioUrl || finalTrack.audioUrl.length < 10 || !finalTrack.audioUrl.includes('cf.saavncdn.com'))) {
+    if (!finalTrack.isDownloaded && (!finalTrack.audioUrl || finalTrack.audioUrl.length < 10)) {
       try {
         const { getTrackDetails } = await import('./services/SaavnService');
         const details = await getTrackDetails(track.id);
 
-        const sameId = String(details.id) === String(track.id);
-        const sameTitle = details.title.toLowerCase().trim() === track.title.toLowerCase().trim();
-
-        if (details && details.audioUrl && (sameId || sameTitle)) {
+        if (details && details.audioUrl) {
           finalTrack = { ...finalTrack, ...details };
         } else if (!finalTrack.audioUrl) {
           addNotification("STREAM ERROR", "Audio source unavailable or restricted.", "ALERT");

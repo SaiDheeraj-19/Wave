@@ -5,6 +5,7 @@ import { Track } from '../types';
 interface HomeViewProps {
   onPlayTrack: (track: Track, queue?: Track[]) => void;
   onPlayNext: (track: Track) => void;
+  recentlyPlayed: Track[];
   onRecentlyPlayedClick?: (track: Track) => void;
   onToggleGym?: () => void;
   onOpenNotifications?: () => void;

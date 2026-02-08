@@ -36,8 +36,8 @@ const mapSongToTrack = (song: any): Track => {
 
     if (encryptedMediaUrl) {
         audioUrl = decryptUrl(encryptedMediaUrl);
-        if (audioUrl) {
-            audioUrl = audioUrl.replace('_96.mp4', '_320.mp4').replace('http://', 'https://');
+        if (audioUrl && audioUrl.startsWith('http:')) {
+            audioUrl = audioUrl.replace('http:', 'https:');
         }
     }
 
@@ -209,12 +209,31 @@ export const searchAll = async (query: string) => {
             title: pl.title.replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
             image: pl.image
         })) || [];
-        const artists = data.artists?.data?.map((ar: any) => ({
+
+        // Enhance Artist Search: If autocomplete is thin on artists, try a dedicated artist search
+        let artists = data.artists?.data?.map((ar: any) => ({
             id: ar.id,
-            title: ar.title.replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
-            image: ar.image.replace('50x50', '500x500').replace('150x150', '500x500'),
-            description: ar.description || 'Artist'
+            title: (ar.title || ar.name || '').replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+            image: (ar.image || '').replace('50x50', '500x500').replace('150x150', '500x500'),
+            description: ar.description || ar.role || 'Artist'
         })) || [];
+
+        if (artists.length === 0) {
+            try {
+                const artistRes = await fetch(`/api/saavn/api.php?__call=search.getArtistResults&q=${encodeURIComponent(query)}&n=10&_format=json`);
+                const artistData = await artistRes.json();
+                if (artistData.results) {
+                    artists = artistData.results.map((ar: any) => ({
+                        id: ar.id,
+                        title: ar.name.replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+                        image: ar.image.replace('50x50', '500x500').replace('150x150', '500x500'),
+                        description: ar.role || 'Artist'
+                    }));
+                }
+            } catch (err) {
+                console.warn("Dedicated artist search failed", err);
+            }
+        }
 
         return {
             topResult: songs[0] || null,
