@@ -19,9 +19,19 @@ import DjMixer from './components/DjMixer';
 import AccountView from './components/AccountView';
 import NotificationCenter from './components/NotificationCenter';
 import AuthView from './components/AuthView';
+import LoadingView from './components/LoadingView';
 
 const App: React.FC = () => {
+  const [isLoading, setIsLoading] = useState(true);
   const [showReport, setShowReport] = useState(false);
+
+  useEffect(() => {
+    // Simulate initial system check/loading
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, []);
   const [reportDuration, setReportDuration] = useState("0:00");
   const [uiMorph, setUiMorph] = useState<'morning-morph' | 'night-morph'>('night-morph');
   const [gymSkips, setGymSkips] = useState(0);
@@ -514,6 +524,10 @@ const App: React.FC = () => {
       default: return null;
     }
   };
+
+  if (isLoading) {
+    return <LoadingView />;
+  }
 
   return (
     <div className={`min-h-screen relative bg-onyx-black transition-all duration-[1s] flex flex-col md:flex-row ${uiMorph}`}>
