@@ -17,6 +17,8 @@ class AudioEngine {
   private sourceB: MediaElementAudioSourceNode;
   private gainA: GainNode;
   private gainB: GainNode;
+  private silentKeeper: HTMLAudioElement | null = null;
+  private wakeLock: any = null;
 
   // Analysis
   private analyzer: AnalyserNode;
@@ -105,6 +107,31 @@ class AudioEngine {
     this.setupListeners(this.audioB, 'B');
 
     this.setupMediaSession();
+    this.setupKeepAlive();
+  }
+
+  private setupKeepAlive() {
+    // 1-second silent WAV to trick Safari into keeping the process alive
+    const silentWav = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAP8A/wD/AA==";
+    this.silentKeeper = new Audio(silentWav);
+    this.silentKeeper.loop = true;
+
+    // Wake Lock to prevent CPU sleep (where supported)
+    if ('wakeLock' in navigator) {
+      const requestWakeLock = async () => {
+        try {
+          this.wakeLock = await (navigator as any).wakeLock.request('screen');
+        } catch (err) {
+          console.warn("WakeLock request failed", err);
+        }
+      };
+      document.addEventListener('visibilitychange', () => {
+        if (this.wakeLock !== null && document.visibilityState === 'visible') {
+          requestWakeLock();
+        }
+      });
+      requestWakeLock();
+    }
   }
 
   private setupListeners(audio: HTMLAudioElement, id: 'A' | 'B') {
@@ -147,6 +174,7 @@ class AudioEngine {
     if (this.ctx.state === 'suspended') {
       try {
         await this.ctx.resume();
+        if (this.silentKeeper) this.silentKeeper.play().catch(() => { });
       } catch (e) {
         console.warn("AudioContext resume failed", e);
       }
