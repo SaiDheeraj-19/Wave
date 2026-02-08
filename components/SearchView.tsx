@@ -158,6 +158,27 @@ const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack, onPlayNext }) => {
                                 </div>
                             </section>
                         )}
+
+                        {/* Artists */}
+                        {results.artists && results.artists.length > 0 && (
+                            <section className="pb-10">
+                                <div className="flex items-center justify-between mb-8 border-b border-white/10 pb-4">
+                                    <h2 className="text-xl font-black italic text-white tracking-tighter uppercase leading-none">Author Identity</h2>
+                                </div>
+                                <div className="flex overflow-x-auto gap-8 no-scrollbar -mx-2 px-2">
+                                    {results.artists.map((ar: any) => (
+                                        <div key={ar.id} className="min-w-[140px] flex flex-col items-center group cursor-pointer transition-all active:scale-95">
+                                            <div className="relative size-32 rounded-full overflow-hidden shadow-2xl mb-4 border-2 border-white/5 group-hover:border-primary/50 transition-all group-hover:scale-110 duration-700">
+                                                <img src={ar.image} className="w-full h-full object-cover" />
+                                                <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </div>
+                                            <p className="text-sm font-black italic text-white leading-none text-center uppercase tracking-tighter mb-1 group-hover:text-primary transition-colors">{ar.title}</p>
+                                            <p className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em]">{ar.description || 'Verified Author'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
                     </div>
                 )}
             </main>

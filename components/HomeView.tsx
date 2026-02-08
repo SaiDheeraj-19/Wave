@@ -12,7 +12,7 @@ interface HomeViewProps {
   onClearRecentlyPlayed?: () => void;
 }
 
-const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onPlayNext, recentlyPlayed, onOpenNotifications, onSearchClick, onClearRecentlyPlayed }) => {
+const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onPlayNext, recentlyPlayed, onOpenNotifications, onSearchClick, onClearRecentlyPlayed, onToggleGym }) => {
   const [trending, setTrending] = React.useState<Track[]>([]);
   const [charts, setCharts] = React.useState<any[]>([]);
   const [featured, setFeatured] = React.useState<Track | null>(null);
@@ -52,15 +52,19 @@ const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onPlayNext, recentlyPl
     }
   };
 
-
-
   return (
     <div className="flex flex-col gap-10 pb-40 pt-16 px-6 animate-in fade-in duration-1000 overflow-y-auto no-scrollbar">
       {/* Top Header */}
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="size-10 rounded-full overflow-hidden border-2 border-primary/20 bg-onyx-surface">
-            <img src="/user_avatar.png" className="w-full h-full object-cover" alt="User" />
+          <div className="size-10 rounded-full overflow-hidden border-2 border-primary/20 bg-onyx-surface relative flex items-center justify-center">
+            <img
+              src="/user_avatar.png"
+              className="absolute inset-0 w-full h-full object-cover"
+              alt="User"
+              onError={(e) => (e.currentTarget.style.opacity = '0')}
+            />
+            <span className="text-white font-black italic text-xs relative z-0">U</span>
           </div>
           <h1 className="text-2xl font-black italic tracking-tighter text-white uppercase">Home</h1>
         </div>
@@ -79,6 +83,23 @@ const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onPlayNext, recentlyPl
           </button>
         </div>
       </header>
+
+      {/* MOBILE ONLY VAMPIRE MODE TRIGGER */}
+      <div className="md:hidden">
+        <button
+          onClick={onToggleGym}
+          className="w-full relative h-20 rounded-[2rem] bg-[#0a0000] border border-red-900/40 flex items-center justify-center gap-4 overflow-hidden group active:scale-95 transition-all shadow-2xl"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-red-950/40 via-black to-red-950/40 opacity-60" />
+          <div className="relative z-10 flex flex-col items-center">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined !text-xl text-red-600 animate-pulse">bloodtype</span>
+              <span className="text-lg font-black italic tracking-tighter uppercase text-white font-display">VAMPIRE MODE</span>
+            </div>
+            <span className="text-[8px] font-bold text-red-900/50 uppercase tracking-[0.3em]">AWAKEN THIRST</span>
+          </div>
+        </button>
+      </div>
 
       {/* For You Section */}
       <section className="space-y-6">

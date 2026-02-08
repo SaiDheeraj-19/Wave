@@ -28,21 +28,24 @@ const mapSongToTrack = (song: any): Track => {
         || (typeof song.more_info?.primary_artists === 'string' ? song.more_info.primary_artists : null)
         || song.primary_artists
         || song.music
+        || (Array.isArray(song.more_info?.primary_artists) ? song.more_info.primary_artists[0]?.name : null)
         || "Unknown Artist";
 
     let audioUrl = '';
-    if (song.encrypted_media_url || song.more_info?.encrypted_media_url) {
-        audioUrl = decryptUrl(song.encrypted_media_url || song.more_info?.encrypted_media_url);
+    const encryptedMediaUrl = song.encrypted_media_url || song.more_info?.encrypted_media_url || song.more_info?.vlink;
+
+    if (encryptedMediaUrl) {
+        audioUrl = decryptUrl(encryptedMediaUrl);
         if (audioUrl) {
             audioUrl = audioUrl.replace('_96.mp4', '_320.mp4').replace('http://', 'https://');
         }
     }
 
     return {
-        id: song.id,
+        id: song.id || song.songid || song.pid || '',
         title: (song.title || song.song || '').replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
-        artist: artist.replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
-        album: (song.album || '').replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+        artist: String(artist).replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+        album: (song.album || song.more_info?.album || '').replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
         artwork: (song.image || '').replace('50x50', '500x500').replace('150x150', '500x500'),
         duration: parseInt(song.duration || song.more_info?.duration || '0'),
         audioUrl: audioUrl,
@@ -159,9 +162,13 @@ export const getTrackDetails = async (id: string): Promise<Track | null> => {
         const response = await fetch(`/api/saavn/api.php?__call=song.getDetails&pids=${id}&_format=json`);
         const data = await response.json();
 
-        // Robust data extraction: Try exact ID, then fallback to first value if object
-        let songData = data[id];
-        if (!songData && typeof data === 'object') {
+        // Robust data extraction: Try exact ID, then fallback to first value
+        let songData = null;
+        if (data[id]) {
+            songData = data[id];
+        } else if (Array.isArray(data)) {
+            songData = data[0];
+        } else if (typeof data === 'object' && data !== null) {
             songData = Object.values(data)[0];
         }
 
@@ -202,16 +209,23 @@ export const searchAll = async (query: string) => {
             title: pl.title.replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
             image: pl.image
         })) || [];
+        const artists = data.artists?.data?.map((ar: any) => ({
+            id: ar.id,
+            title: ar.title.replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+            image: ar.image.replace('50x50', '500x500').replace('150x150', '500x500'),
+            description: ar.description || 'Artist'
+        })) || [];
 
         return {
             topResult: songs[0] || null,
             songs,
             albums,
-            playlists
+            playlists,
+            artists
         };
     } catch (error) {
         console.error("Failed search all:", error);
-        return { topResult: null, songs: [], albums: [], playlists: [] };
+        return { topResult: null, songs: [], albums: [], playlists: [], artists: [] };
     }
 };
 

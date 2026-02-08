@@ -255,7 +255,10 @@ const App: React.FC = () => {
         const details = await getTrackDetails(track.id);
 
         // Critical check: Ensure ID match to prevent metadata drift
-        if (details && details.audioUrl && (details.id === track.id || details.title === track.title)) {
+        const sameId = String(details.id) === String(track.id);
+        const sameTitle = details.title.toLowerCase().trim() === track.title.toLowerCase().trim();
+
+        if (details && details.audioUrl && (sameId || sameTitle)) {
           finalTrack = { ...finalTrack, ...details }; // Merge to keep any existing context
         } else if (!finalTrack.audioUrl) {
           addNotification("STREAM ERROR", "Audio source unavailable or restricted.", "ALERT");
@@ -607,8 +610,14 @@ const App: React.FC = () => {
               <h1 className="text-4xl font-black italic tracking-tighter text-white uppercase leading-none group-hover:text-primary transition-colors">WAVE</h1>
               <p className="text-[10px] font-black text-white/40 uppercase tracking-widest group-hover:text-white">Profile & Identity</p>
             </div>
-            <div className="size-10 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-primary transition-colors">
-              <span className="text-white font-black italic">{appState.currentUser?.email?.[0].toUpperCase() || 'U'}</span>
+            <div className="size-10 rounded-full bg-white/10 overflow-hidden flex items-center justify-center group-hover:bg-primary transition-colors relative">
+              <img
+                src="/user_avatar.png"
+                className="absolute inset-0 w-full h-full object-cover"
+                alt=""
+                onError={(e) => (e.currentTarget.style.opacity = '0')}
+              />
+              <span className="text-white font-black italic relative z-10">{appState.currentUser?.email?.[0].toUpperCase() || 'U'}</span>
             </div>
           </div>
 

@@ -1,0 +1,16 @@
+{
+    "name": "WAVE Music",
+    "short_name": "WAVE",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#080808",
+    "theme_color": "#7f13ec",
+    "icons": [
+        {
+            "src": "/user_avatar.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
