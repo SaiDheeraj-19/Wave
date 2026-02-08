@@ -20,6 +20,7 @@ import AccountView from './components/AccountView';
 import NotificationCenter from './components/NotificationCenter';
 import AuthView from './components/AuthView';
 import LoadingView from './components/LoadingView';
+import ArtistProfileView from './components/ArtistProfileView';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +39,7 @@ const App: React.FC = () => {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
   const [isDjVisible, setIsDjVisible] = useState(false);
+  const [selectedArtistId, setSelectedArtistId] = useState<string | null>(null);
 
   const [appState, setAppState] = useState<AppState>({
     activeTab: 'home',
@@ -325,14 +327,20 @@ const App: React.FC = () => {
       }
     })();
 
+    console.log("Playing track:", finalTrack.title, "URL:", finalTrack.audioUrl);
+
     setIsDjVisible(false);
     setTimeout(() => setIsDjVisible(true), 1200);
 
-    try {
-      await audioEngineRef.current.play(finalTrack, appState.crossfadeDuration, appState.silenceBetweenSongs);
-    } catch (err) {
-      console.error("Playback execution error", err);
-      addNotification("PLAYBACK FAILED", "Stream connection reset or blocked.", "ALERT");
+    if (audioEngineRef.current) {
+      try {
+        await audioEngineRef.current.play(finalTrack, appState.crossfadeDuration, appState.silenceBetweenSongs);
+      } catch (err) {
+        console.error("Playback execution error", err);
+        addNotification("PLAYBACK FAILED", "Stream connection reset or blocked.", "ALERT");
+      }
+    } else {
+      console.error("AudioEngine NOT initialized!");
     }
   }, [appState.crossfadeDuration, appState.silenceBetweenSongs, addNotification]);
 
@@ -512,7 +520,13 @@ const App: React.FC = () => {
       case 'browse': return (
         <BrowseView onPlayTrack={handlePlayTrack} onPlayNext={handlePlayNext} onSelectPlaylist={() => { }} />
       );
-      case 'search': return <SearchView onPlayTrack={handlePlayTrack} onPlayNext={handlePlayNext} />;
+      case 'search': return (
+        <SearchView
+          onPlayTrack={handlePlayTrack}
+          onPlayNext={handlePlayNext}
+          onSelectArtist={(id) => setSelectedArtistId(id)}
+        />
+      );
       case 'mixer': return <DjMixer appState={appState} setAppState={setAppState} audioEngine={audioEngineRef.current} />;
       case 'library': return <LibraryView onPlayTrack={handlePlayTrack} onPlayNext={handlePlayNext} appState={appState} />;
       case 'analytics': return <AnalyticsView appState={appState} />;
@@ -674,6 +688,15 @@ const App: React.FC = () => {
           notifications={appState.notifications}
           onClose={() => setIsNotificationOpen(false)}
           onClear={() => setAppState(prev => ({ ...prev, notifications: [] }))}
+        />
+      )}
+
+      {selectedArtistId && (
+        <ArtistProfileView
+          artistId={selectedArtistId}
+          onClose={() => setSelectedArtistId(null)}
+          onPlayTrack={handlePlayTrack}
+          onPlayNext={handlePlayNext}
         />
       )}
     </div>

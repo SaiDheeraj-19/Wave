@@ -5,11 +5,12 @@ import { Track } from '../types';
 interface SearchViewProps {
     onPlayTrack: (track: Track, queue?: Track[]) => void;
     onPlayNext: (track: Track) => void;
+    onSelectArtist?: (id: string) => void;
 }
 
 
 
-const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack, onPlayNext }) => {
+const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack, onPlayNext, onSelectArtist }) => {
     const [query, setQuery] = React.useState('');
     const [results, setResults] = React.useState<any>(null);
     const [loading, setLoading] = React.useState(false);
@@ -167,7 +168,11 @@ const SearchView: React.FC<SearchViewProps> = ({ onPlayTrack, onPlayNext }) => {
                                 </div>
                                 <div className="flex overflow-x-auto gap-8 no-scrollbar -mx-2 px-2">
                                     {results.artists.map((ar: any) => (
-                                        <div key={ar.id} className="min-w-[140px] flex flex-col items-center group cursor-pointer transition-all active:scale-95">
+                                        <div
+                                            key={ar.id}
+                                            onClick={() => onSelectArtist?.(ar.id)}
+                                            className="min-w-[140px] flex flex-col items-center group cursor-pointer transition-all active:scale-95"
+                                        >
                                             <div className="relative size-32 rounded-full overflow-hidden shadow-2xl mb-4 border-2 border-white/5 group-hover:border-primary/50 transition-all group-hover:scale-110 duration-700">
                                                 <img src={ar.image} className="w-full h-full object-cover" />
                                                 <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity" />

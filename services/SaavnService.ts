@@ -270,6 +270,28 @@ export const getRecommendations = async (id: string): Promise<Track[]> => {
     }
 };
 
+export const getArtistDetails = async (id: string): Promise<{ artist: any, songs: Track[] }> => {
+    try {
+        const response = await fetch(`/api/saavn/api.php?__call=artist.getDetails&artistId=${id}&_format=json`);
+        const data = await response.json();
+
+        const songs = (data.topSongs || data.songs || []).map(mapSongToTrack);
+        const artist = {
+            id: data.artistId,
+            name: data.name,
+            image: (data.image || '').replace('50x50', '500x500').replace('150x150', '500x500'),
+            bio: (data.bio || data.description || []).map((b: any) => b.text).join(' ') || "No biography available.",
+            followerCount: data.followerCount,
+            fanCount: data.fanCount
+        };
+
+        return { artist, songs };
+    } catch (error) {
+        console.error("Failed to get artist details:", error);
+        return { artist: null, songs: [] };
+    }
+};
+
 // Helper to get playlist tracks (reusing getPlaylistDetails but typing as any for flexibility if needed)
 export const getInternalPlaylistDetails = async (id: string) => {
     return getPlaylistDetails(id);

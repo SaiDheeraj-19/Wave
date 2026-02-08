@@ -18,6 +18,8 @@ interface PlayerViewProps {
   isLiked: boolean;
   lyricsFirstMode: boolean;
   onPlayTrack: (track: Track) => void;
+  onToggleDownload?: (track: Track) => void;
+  isDownloaded?: boolean;
 }
 
 const PlayerView: React.FC<PlayerViewProps> = ({
@@ -216,7 +218,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
             {queue.map((t, i) => (
               <div
                 key={t.id + i}
-                onClick={() => onPlayTrack(t)}
+                onClick={() => { onPlayTrack(t); setShowQueue(false); }}
                 className={`flex items-center gap-4 p-4 rounded-3xl transition-all cursor-pointer hover:bg-white/10 ${t.id === track.id ? 'bg-primary/20 border-2 border-primary/40' : 'bg-white/5 border-2 border-transparent'}`}
               >
                 <div className="size-14 rounded-2xl overflow-hidden">
