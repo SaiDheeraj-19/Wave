@@ -16,7 +16,7 @@ const Navigation: React.FC<NavigationProps> = ({ activeTab, setActiveTab }) => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around pb-12 pt-6 px-4 bg-onyx-black/90 backdrop-blur-3xl border-t border-white/5 shadow-[0_-30px_60px_rgba(0,0,0,0.8)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-6 px-4 bg-onyx-black/95 backdrop-blur-3xl border-t border-white/5 shadow-[0_-30px_60px_rgba(0,0,0,0.8)]">
       {tabs.map(tab => (
         <button
           key={tab.id}

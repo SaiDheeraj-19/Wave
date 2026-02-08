@@ -66,37 +66,41 @@ export const getHomePageData = async () => {
         const charts = await chartsRes.json();
         const trending = await trendingRes.json();
 
-        const allowedLanguages = ['english', 'hindi', 'telugu', 'tamil'];
+        const allowedLanguages = ['english', 'hindi', 'telugu', 'tamil', 'kannada', 'malayalam'];
         const unwantedTerms = ['punjabi', 'bhojpuri', 'haryanvi', 'nursery', 'rhymes', 'kids', 'children', 'kids classic'];
 
         const filterSongs = (songs: any[]) => {
-            return songs.filter(song => {
+            let filtered = songs.filter(song => {
                 const lang = (song.language || '').toLowerCase();
                 return allowedLanguages.includes(lang) || lang === '';
             });
+            if (filtered.length < 5 && songs.length > 0) return songs.slice(0, 20);
+            return filtered;
         };
 
         const filterCharts = (charts: any[]) => {
-            return charts.filter(chart => {
+            let filtered = charts.filter(chart => {
                 const title = (chart.title || '').toLowerCase();
                 const language = (chart.language || '').toLowerCase();
-
-                // Check for explicit unwanted terms
                 if (unwantedTerms.some(term => title.includes(term))) return false;
-
-                // Check if it matches allowed languages or is generic 'global'/'india'
                 const isAllowed = allowedLanguages.some(lang => title.includes(lang) || language.includes(lang));
-                const isGeneric = title.includes('global') || title.includes('top 50') || title.includes('superhits');
-
+                const isGeneric = title.includes('global') || title.includes('top 50') || title.includes('superhits') || title.includes('trending');
                 return isAllowed || isGeneric;
             });
+            if (filtered.length === 0 && Array.isArray(charts)) return charts.slice(0, 10);
+            return filtered;
         };
 
         return {
             charts: Array.isArray(charts) ? filterCharts(charts) : [],
             trending: {
                 songs: filterSongs(trending.songs || []).map(mapSongToTrack),
-                albums: (trending.albums || [])
+                albums: (trending.albums || []).map((al: any) => ({
+                    id: al.id,
+                    title: (al.title || al.name || '').replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
+                    image: (al.image || '').replace('50x50', '500x500').replace('150x150', '500x500'),
+                    artist: al.music || al.artist || 'Various Artists'
+                }))
             }
         };
     } catch (error) {
