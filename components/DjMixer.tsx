@@ -133,8 +133,8 @@ const DjMixer: React.FC<DjMixerProps> = ({ appState, setAppState, audioEngine })
                                 key={preset.name}
                                 onClick={() => applyPreset(preset.name, preset.bands)}
                                 className={`px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap border ${appState.eqSettings.preset === preset.name
-                                        ? 'bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.4)] scale-105'
-                                        : 'bg-black/40 text-white/40 border-white/10 hover:text-white hover:border-white/30'
+                                    ? 'bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.4)] scale-105'
+                                    : 'bg-black/40 text-white/40 border-white/10 hover:text-white hover:border-white/30'
                                     }`}
                             >
                                 {preset.name} Mode

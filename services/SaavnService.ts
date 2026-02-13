@@ -2,6 +2,9 @@
 import { Track } from '../types';
 import { decryptUrl } from '../utils/saavnDecrypt';
 
+const BASE_URL = import.meta.env.DEV ? '/api/saavn' : 'https://www.jiosaavn.com';
+const API_URL = `${BASE_URL}/api.php`;
+
 interface SaavnSong {
     id: string;
     title: string;
@@ -59,8 +62,8 @@ const mapSongToTrack = (song: any): Track => {
 export const getHomePageData = async () => {
     try {
         const [chartsRes, trendingRes] = await Promise.all([
-            fetch('/api/saavn/api.php?__call=content.getCharts&api_version=4&_format=json&ctx=web6dot0'),
-            fetch('/api/saavn/api.php?__call=content.getTrending&api_version=4&_format=json&ctx=web6dot0')
+            fetch(`${API_URL}?__call=content.getCharts&api_version=4&_format=json&ctx=web6dot0`),
+            fetch(`${API_URL}?__call=content.getTrending&api_version=4&_format=json&ctx=web6dot0`)
         ]);
 
         const charts = await chartsRes.json();
@@ -111,7 +114,7 @@ export const getHomePageData = async () => {
 
 export const getPlaylistDetails = async (id: string): Promise<Track[]> => {
     try {
-        const response = await fetch(`/api/saavn/api.php?__call=playlist.getDetails&listid=${id}&_format=json`);
+        const response = await fetch(`${API_URL}?__call=playlist.getDetails&listid=${id}&_format=json`);
         const data = await response.json();
 
         // In playlist details, 'songs' or 'list' contains the tracks
@@ -125,7 +128,7 @@ export const getPlaylistDetails = async (id: string): Promise<Track[]> => {
 
 export const getAlbumDetails = async (id: string): Promise<Track[]> => {
     try {
-        const response = await fetch(`/api/saavn/api.php?__call=content.getAlbumDetails&albumid=${id}&_format=json`);
+        const response = await fetch(`${API_URL}?__call=content.getAlbumDetails&albumid=${id}&_format=json`);
         const data = await response.json();
 
         const songs = data.songs || data.list || [];
@@ -138,7 +141,7 @@ export const getAlbumDetails = async (id: string): Promise<Track[]> => {
 
 export const searchTracks = async (query: string): Promise<Track[]> => {
     try {
-        const response = await fetch(`/api/saavn/api.php?__call=autocomplete.get&_format=json&_marker=0&cc=in&includeMetaTags=1&query=${encodeURIComponent(query)}`);
+        const response = await fetch(`${API_URL}?__call=autocomplete.get&_format=json&_marker=0&cc=in&includeMetaTags=1&query=${encodeURIComponent(query)}`);
         const data = await response.json();
 
         if (!data.songs?.data) return [];
@@ -152,7 +155,7 @@ export const searchTracks = async (query: string): Promise<Track[]> => {
 
 export const searchSongs = async (query: string, count: number = 50): Promise<Track[]> => {
     try {
-        const response = await fetch(`/api/saavn/api.php?__call=search.getResults&q=${encodeURIComponent(query)}&n=${count}&p=1&_format=json&_marker=0`);
+        const response = await fetch(`${API_URL}?__call=search.getResults&q=${encodeURIComponent(query)}&n=${count}&p=1&_format=json&_marker=0`);
         const data = await response.json();
         return (data.results || []).map(mapSongToTrack);
     } catch (error) {
@@ -163,7 +166,7 @@ export const searchSongs = async (query: string, count: number = 50): Promise<Tr
 
 export const getTrackDetails = async (id: string): Promise<Track | null> => {
     try {
-        const response = await fetch(`/api/saavn/api.php?__call=song.getDetails&pids=${id}&_format=json`);
+        const response = await fetch(`${API_URL}?__call=song.getDetails&pids=${id}&_format=json`);
         const data = await response.json();
 
         // Robust data extraction: Try exact ID, then fallback to first value
@@ -187,7 +190,7 @@ export const getTrackDetails = async (id: string): Promise<Track | null> => {
 
 export const searchPlaylists = async (query: string): Promise<any[]> => {
     try {
-        const response = await fetch(`/api/saavn/api.php?__call=search.getPlaylistResults&q=${encodeURIComponent(query)}&n=20&p=1&_format=json&_marker=0`);
+        const response = await fetch(`${API_URL}?__call=search.getPlaylistResults&q=${encodeURIComponent(query)}&n=20&p=1&_format=json&_marker=0`);
         const data = await response.json();
         return data.results || [];
     } catch (error) {
@@ -198,24 +201,37 @@ export const searchPlaylists = async (query: string): Promise<any[]> => {
 
 export const searchAll = async (query: string) => {
     try {
-        const response = await fetch(`/api/saavn/api.php?__call=autocomplete.get&_format=json&_marker=0&cc=in&includeMetaTags=1&query=${encodeURIComponent(query)}`);
-        const data = await response.json();
+        const [autoRes, searchRes] = await Promise.all([
+            fetch(`${API_URL}?__call=autocomplete.get&_format=json&_marker=0&cc=in&includeMetaTags=1&query=${encodeURIComponent(query)}`),
+            fetch(`${API_URL}?__call=search.getResults&q=${encodeURIComponent(query)}&n=20&p=1&_format=json&_marker=0`)
+        ]);
 
-        const songs = data.songs?.data?.map(mapSongToTrack) || [];
-        const albums = data.albums?.data?.map((al: any) => ({
+        const autoData = await autoRes.json();
+        const searchData = await searchRes.json();
+
+        const autoSongs = autoData.songs?.data?.map(mapSongToTrack) || [];
+        const searchSongs = (searchData.results || []).map(mapSongToTrack);
+
+        // Merge songs, preferring autocomplete results first (usually more relevant), but remove duplicates
+        const combinedSongs = [...autoSongs, ...searchSongs].filter((song, index, self) =>
+            index === self.findIndex((t) => (t.id === song.id || (t.title === song.title && t.artist === song.artist)))
+        );
+
+        const albums = autoData.albums?.data?.map((al: any) => ({
             id: al.id,
             title: al.title.replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
             artist: al.music || al.more_info?.music || "Various Artists",
             image: al.image.replace('50x50', '500x500').replace('150x150', '500x500')
         })) || [];
-        const playlists = data.playlists?.data?.map((pl: any) => ({
+
+        const playlists = autoData.playlists?.data?.map((pl: any) => ({
             id: pl.id,
             title: pl.title.replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
             image: pl.image
         })) || [];
 
-        // Enhance Artist Search: If autocomplete is thin on artists, try a dedicated artist search
-        let artists = data.artists?.data?.map((ar: any) => ({
+        // Enhance Artist Search
+        let artists = autoData.artists?.data?.map((ar: any) => ({
             id: ar.id,
             title: (ar.title || ar.name || '').replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
             image: (ar.image || '').replace('50x50', '500x500').replace('150x150', '500x500'),
@@ -224,7 +240,7 @@ export const searchAll = async (query: string) => {
 
         if (artists.length === 0) {
             try {
-                const artistRes = await fetch(`/api/saavn/api.php?__call=search.getArtistResults&q=${encodeURIComponent(query)}&n=10&_format=json`);
+                const artistRes = await fetch(`${API_URL}?__call=search.getArtistResults&q=${encodeURIComponent(query)}&n=10&_format=json`);
                 const artistData = await artistRes.json();
                 if (artistData.results) {
                     artists = artistData.results.map((ar: any) => ({
@@ -240,8 +256,8 @@ export const searchAll = async (query: string) => {
         }
 
         return {
-            topResult: songs[0] || null,
-            songs,
+            topResult: combinedSongs[0] || null,
+            songs: combinedSongs,
             albums,
             playlists,
             artists
@@ -252,9 +268,11 @@ export const searchAll = async (query: string) => {
     }
 };
 
+
+
 export const getLyrics = async (id: string): Promise<string | null> => {
     try {
-        const response = await fetch(`/api/saavn/api.php?__call=lyrics.getLyrics&lyrics_id=${id}&_format=json`);
+        const response = await fetch(`${API_URL}?__call=lyrics.getLyrics&lyrics_id=${id}&_format=json`);
         const data = await response.json();
         return data.lyrics || null;
     } catch (error) {
@@ -265,7 +283,7 @@ export const getLyrics = async (id: string): Promise<string | null> => {
 
 export const getRecommendations = async (id: string): Promise<Track[]> => {
     try {
-        const response = await fetch(`/api/saavn/api.php?__call=reco.getreco&pid=${id}&_format=json&ctx=web6dot0`);
+        const response = await fetch(`${API_URL}?__call=reco.getreco&pid=${id}&_format=json&ctx=web6dot0`);
         const data = await response.json();
         return (data || []).map(mapSongToTrack);
     } catch (error) {
@@ -276,7 +294,7 @@ export const getRecommendations = async (id: string): Promise<Track[]> => {
 
 export const getArtistDetails = async (id: string): Promise<{ artist: any, songs: Track[] }> => {
     try {
-        const response = await fetch(`/api/saavn/api.php?__call=artist.getDetails&artistId=${id}&_format=json`);
+        const response = await fetch(`${API_URL}?__call=artist.getDetails&artistId=${id}&_format=json`);
         const data = await response.json();
 
         const songs = (data.topSongs || data.songs || []).map(mapSongToTrack);

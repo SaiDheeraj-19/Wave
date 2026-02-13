@@ -3,7 +3,12 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.onyx.wave',
   appName: 'WAVE Music',
-  webDir: 'dist'
+  webDir: 'dist',
+  plugins: {
+    CapacitorHttp: {
+      enabled: true,
+    },
+  },
 };
 
 export default config;

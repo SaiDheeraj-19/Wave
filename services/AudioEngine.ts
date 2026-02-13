@@ -44,7 +44,11 @@ class AudioEngine {
     onProgress: (time: number) => void,
     onDurationChange: (duration: number) => void
   ) {
-    this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioContextClass = (window.AudioContext || (window as any).webkitAudioContext);
+    this.ctx = new AudioContextClass({
+      latencyHint: 'playback',
+      sampleRate: 96000 // Request High-Res Output if supported
+    });
 
     this.audioA = new Audio();
     this.audioB = new Audio();
@@ -178,14 +182,25 @@ class AudioEngine {
 
   private setupListeners(audio: HTMLAudioElement, id: 'A' | 'B') {
     audio.addEventListener('play', () => {
-      if (this.activeElement === id) this.onStateChange(PlaybackState.PLAYING);
+      if (this.activeElement === id) {
+        this.onStateChange(PlaybackState.PLAYING);
+        this.updatePositionState();
+      }
     });
     audio.addEventListener('pause', () => {
-      if (this.activeElement === id) this.onStateChange(PlaybackState.PAUSED);
+      if (this.activeElement === id) {
+        this.onStateChange(PlaybackState.PAUSED);
+        this.updatePositionState();
+      }
     });
     audio.addEventListener('timeupdate', () => {
       if (this.activeElement === id) {
         this.onProgress(audio.currentTime);
+      }
+    });
+    audio.addEventListener('seeked', () => {
+      if (this.activeElement === id) {
+        this.updatePositionState();
       }
     });
     audio.addEventListener('durationchange', () => {
@@ -231,26 +246,25 @@ class AudioEngine {
     if (this.silenceTimeout) clearTimeout(this.silenceTimeout);
 
     const executePlay = async () => {
+      // Reference to current active elements BEFORE switching
       const prevElement = this.activeElement === 'A' ? this.audioA : this.audioB;
       const prevGain = this.activeElement === 'A' ? this.gainA : this.gainB;
 
-      // Switch Active
+      // Switch Active Target
       this.activeElement = this.activeElement === 'A' ? 'B' : 'A';
       const nextElement = this.activeElement === 'A' ? this.audioA : this.audioB;
       const nextGain = this.activeElement === 'A' ? this.gainA : this.gainB;
 
       this.currentTrack = track;
       nextElement.src = track.audioUrl;
+      nextElement.load(); // CRITICAL: Force reload to clear previous state
       nextElement.setAttribute('playsinline', '');
       nextElement.setAttribute('preload', 'auto');
 
-      // iOS 18 Magic: Update MediaSession BEFORE calling play
+      // Update metadata immediately
       this.updateMediaSession(track);
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = 'playing';
-      }
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
 
-      // Use setTargetAtTime for robust ramping on mobile
       const rampTime = crossfade > 0 ? crossfade : 0.5;
       nextGain.gain.cancelScheduledValues(this.ctx.currentTime);
       nextGain.gain.setValueAtTime(0, this.ctx.currentTime);
@@ -259,27 +273,38 @@ class AudioEngine {
         await nextElement.play();
         if (this.silentKeeper) this.silentKeeper.play().catch(() => { });
 
-        // Soft ramp up (linearRamp can fail if context was recently resumed)
-        nextGain.gain.setTargetAtTime(1, this.ctx.currentTime, rampTime / 3);
+        // Linear Ramp for smooth entry
+        nextGain.gain.linearRampToValueAtTime(1, this.ctx.currentTime + (rampTime / 2));
 
+        // Handle Crossfade / Exit of Previous Track
         if (crossfade > 0) {
-          prevGain.gain.setTargetAtTime(0, this.ctx.currentTime, rampTime / 3);
+          prevGain.gain.cancelScheduledValues(this.ctx.currentTime);
+          prevGain.gain.setValueAtTime(prevGain.gain.value, this.ctx.currentTime);
+          prevGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + rampTime);
+
           setTimeout(() => {
+            // Ensure we only pause if it hasn't become active again (race condition check)
             if (this.activeElement !== (prevElement === this.audioA ? 'A' : 'B')) {
               prevElement.pause();
-              prevElement.src = "";
+              prevElement.currentTime = 0; // Reset
             }
           }, rampTime * 1000);
         } else {
-          // Continuous Stream Protocol: 500ms overlap to keep session hot
+          // Quick cut but keep brief overlap to prevent gaps
           setTimeout(() => {
             prevElement.pause();
-            prevElement.src = "";
-          }, 500);
+            prevElement.currentTime = 0;
+          }, 200);
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e.name === 'AbortError') {
+          console.warn("Playback aborted - user skipped too fast.");
+          return;
+        }
         console.error("AudioEngine playback failed:", e);
-        throw e; // Propagate error to UI
+        // If play failed, revert active element state to avoid incorrect tracking
+        this.activeElement = this.activeElement === 'A' ? 'B' : 'A';
+        throw e;
       }
     };
 
@@ -287,20 +312,12 @@ class AudioEngine {
     if (silence > 0) {
       this.onStateChange(PlaybackState.BUFFERING);
       this.silenceTimeout = setTimeout(() => {
-        executePlay().catch(e => {
-          console.error("Delayed playback failed", e);
-          // Attempt recovery
-          setTimeout(() => executePlay(), 500);
-        });
+        executePlay().catch(e => console.error("Delayed playback failed", e));
       }, silence * 1000);
     } else {
-      try {
-        await executePlay();
-      } catch (e) {
-        // Immediate retry for race conditions
-        console.warn("Immediate playback failed, retrying...", e);
-        setTimeout(() => executePlay(), 500);
-      }
+      executePlay().catch(e => {
+        console.warn("Immediate playback failed, attempting recovery...", e);
+      });
     }
   }
 
@@ -374,10 +391,28 @@ class AudioEngine {
       });
 
       // Update playback state for lock screen
-      this.audioA.addEventListener('play', () => navigator.mediaSession.playbackState = 'playing');
-      this.audioA.addEventListener('pause', () => navigator.mediaSession.playbackState = 'paused');
-      this.audioB.addEventListener('play', () => navigator.mediaSession.playbackState = 'playing');
-      this.audioB.addEventListener('pause', () => navigator.mediaSession.playbackState = 'paused');
+      this.audioA.addEventListener('play', () => {
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+      });
+      this.audioA.addEventListener('pause', () => {
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+      });
+      this.audioB.addEventListener('play', () => {
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+      });
+      this.audioB.addEventListener('pause', () => {
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+      });
+
+      // KEY FIX: Add seekto handler for Lock Screen / Control Center scrubbing
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime || details.seekTime === 0) {
+          this.seek(details.seekTime);
+          if (details.fastSeek && 'mediaSession' in navigator) {
+            // Optional: Optimistic update if needed
+          }
+        }
+      });
     }
 
     // Lifecycle handler for iOS backgrounding
@@ -390,17 +425,17 @@ class AudioEngine {
     });
 
     // iOS 18 "Tickle" Protocol: Keep the context hot
+    // Reduced frequency to avoid aggressive battery optimization killing the thread
     setInterval(() => {
       if (this.activeElement && !this.getActiveAudio().paused) {
         if (this.ctx.state === 'suspended') {
           this.ctx.resume();
         }
-        // Force the silent keeper to stay in sync
-        if (this.silentKeeper && this.silentKeeper.paused) {
-          this.silentKeeper.play().catch(() => { });
-        }
+        // NOTE: Disabled SilentKeeper loop during playback as it causes audio session interrupts on iOS
+        // holding two audio tags active simultaneously is risky.
+        // The main audio tag should hold the session.
       }
-    }, 1000);
+    }, 2000);
   }
 
   private updateMediaSession(track: Track) {
@@ -409,8 +444,29 @@ class AudioEngine {
         title: track.title,
         artist: track.artist,
         album: track.album,
-        artwork: [{ src: track.artwork, sizes: '512x512', type: 'image/png' }]
+        artwork: track.artwork ? [{ src: track.artwork, sizes: '512x512', type: 'image/png' }] : undefined
       });
+
+      // Initial Position Update
+      this.updatePositionState();
+    }
+  }
+
+  // NEW: Update Position State for Lock Screen Slider
+  private updatePositionState() {
+    if ('mediaSession' in navigator && this.currentTrack) {
+      const audio = this.getActiveAudio();
+      if (audio && !isNaN(audio.duration) && !isNaN(audio.currentTime)) {
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: audio.duration,
+            playbackRate: audio.playbackRate,
+            position: audio.currentTime
+          });
+        } catch (e) {
+          // Ignore errors (e.g. if duration is infinite or not ready)
+        }
+      }
     }
   }
 }

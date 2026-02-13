@@ -134,16 +134,17 @@ const PlayerView: React.FC<PlayerViewProps> = ({
       {/* Progress & Controls */}
       <div className="relative z-10 space-y-12">
         <div className="space-y-4">
-          <div
-            className="relative h-1.5 w-full bg-white/10 rounded-full cursor-pointer flex items-center overflow-hidden"
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const pct = (e.clientX - rect.left) / rect.width;
-              onSeek(pct * totalDuration);
+          <input
+            type="range"
+            min={0}
+            max={totalDuration || 1}
+            value={progress}
+            onChange={(e) => onSeek(Number(e.target.value))}
+            className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-[0_0_15px_rgba(168,85,247,0.8)] hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
+            style={{
+              background: `linear-gradient(to right, #a855f7 ${(progress / (totalDuration || 1)) * 100}%, rgba(255,255,255,0.1) ${(progress / (totalDuration || 1)) * 100}%)`
             }}
-          >
-            <div className="absolute left-0 top-0 bottom-0 bg-primary rounded-full shadow-[0_0_15px_rgba(168,85,247,0.8)]" style={{ width: `${(progress / (totalDuration || 1)) * 100}%` }} />
-          </div>
+          />
           <div className="flex justify-between text-[11px] font-black text-white/20 uppercase tracking-widest leading-none">
             <span>{formatTime(progress)}</span>
             <span>-{formatTime(totalDuration - progress)}</span>

@@ -71,7 +71,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ onPlayTrack, appState }) => {
         <div className="space-y-2">
           {displayedTracks.length > 0 ? (
             displayedTracks.slice(0, 20).map((track) => (
-              <div key={track.id} onClick={() => onPlayTrack(track)} className="flex items-center gap-5 p-3 hover:bg-white/5 rounded-[2rem] group cursor-pointer active:scale-95 transition-all border border-transparent hover:border-white/5">
+              <div key={track.id} onClick={() => onPlayTrack(track)} className="flex items-center gap-4 p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors cursor-pointer active:scale-95">
                 <img src={track.artwork} className="size-16 rounded-2xl object-cover shadow-2xl group-hover:scale-110 transition-all font-bold" />
                 <div className="flex-1 overflow-hidden">
                   <p className="text-lg font-black italic text-white truncate leading-none tracking-tighter uppercase mb-1">{track.title}</p>

@@ -204,20 +204,37 @@ const App: React.FC = () => {
         if (details && details.audioUrl) {
           finalTrack = { ...finalTrack, ...details };
         } else if (!finalTrack.audioUrl) {
-          addNotification("STREAM ERROR", "Audio source unavailable or restricted.", "ALERT");
+          console.warn("Stream unavailable, skipping:", track.title);
+          addNotification("SKIPPING", `${track.title} unavailable.`, "ALERT");
+          // Auto-skip to next track on failure
+          setTimeout(() => {
+            const currentIndex = appState.queue.findIndex(t => t.id === track.id);
+            const nextIndex = (currentIndex + 1) % appState.queue.length;
+            handlePlayTrack(appState.queue[nextIndex]);
+          }, 1000);
           return;
         }
       } catch (e) {
         console.error("Fetch failed", e);
-        addNotification("NETWORK ERROR", "Failed to retrieve track metadata.", "ALERT");
+        // Auto-skip to next track on failure
+        setTimeout(() => {
+          const currentIndex = appState.queue.findIndex(t => t.id === track.id);
+          const nextIndex = (currentIndex + 1) % appState.queue.length;
+          handlePlayTrack(appState.queue[nextIndex]);
+        }, 1000);
         return;
       }
     }
 
     setAppState(prev => {
       const updatedRecent = [finalTrack, ...prev.recentlyPlayed.filter(t => t.id !== finalTrack.id)].slice(0, 20);
+
       let finalQueue = newQueue || (prev.queue.length > 0 ? prev.queue : [finalTrack]);
-      if (!newQueue && !finalQueue.some(t => t.id === finalTrack.id)) {
+
+      // Strict Deduplication: Check ID OR (Title + Artist)
+      const isDuplicate = finalQueue.some(t => t.id === finalTrack.id || (t.title === finalTrack.title && t.artist === finalTrack.artist));
+
+      if (!newQueue && !isDuplicate) {
         finalQueue = [finalTrack, ...finalQueue];
       }
 
@@ -464,9 +481,22 @@ const App: React.FC = () => {
     }
   }, [appState.isGymMode, appState.currentTrack, appState.lastNormalProgress]);
 
+  // Robust 'Ended' Handler for Background/Lock Screen
+  const latestAppStateRef = useRef(appState);
+  useEffect(() => {
+    latestAppStateRef.current = appState;
+  }, [appState]);
+
   useEffect(() => {
     if (appState.playbackState === PlaybackState.IDLE && appState.currentTrack) {
-      handleNext();
+      // Use ref to access latest state without dependency cycle or stale closure
+      const currentQueue = latestAppStateRef.current.queue;
+      const currentTrack = latestAppStateRef.current.currentTrack;
+
+      if (currentQueue.length > 0 && currentTrack) {
+        console.log("Auto-advancing to next track...");
+        handleNext();
+      }
     }
   }, [appState.playbackState, handleNext, appState.currentTrack]);
 
