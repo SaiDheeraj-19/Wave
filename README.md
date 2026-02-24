@@ -3,7 +3,7 @@
 
 ## 🌑 Overview
 
-**ONYX** is not just a music player; it is an **Intelligence Matrix** designed for the nocturnal elite. With its bleeding-edge **Vampire Mode**, it transforms your workout sessions into high-stakes rituals, where every drop of sweat is a sacrifice to the gains.
+**WAVE** is not just a music player; it is an **Intelligence Matrix** designed for the nocturnal elite. With its bleeding-edge **Vampire Mode**, it transforms your workout sessions into high-stakes rituals, where every drop of sweat is a sacrifice to the gains.
 
 Forget standard playlists. ONYX dynamically hunts for the darkest, heaviest tracks to fuel your transformation.
 
