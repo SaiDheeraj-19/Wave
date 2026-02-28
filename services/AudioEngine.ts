@@ -286,17 +286,15 @@ class AudioEngine {
             // Ensure we only pause if it hasn't become active again (race condition check)
             if (this.activeElement !== (prevElement === this.audioA ? 'A' : 'B')) {
               prevElement.pause();
-              prevElement.currentTime = 0; // Reset
+              // nextElement.src = ''; // DO NOT RESET SRC HERE, IT BREAKS RE-ENTRY
             }
           }, rampTime * 1000);
         } else {
           // Quick cut but keep brief overlap to prevent gaps
-          setTimeout(() => {
-            prevElement.pause();
-            prevElement.currentTime = 0;
-          }, 200);
+          prevElement.pause();
         }
       } catch (e: any) {
+
         if (e.name === 'AbortError') {
           console.warn("Playback aborted - user skipped too fast.");
           return;

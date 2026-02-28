@@ -21,6 +21,9 @@ const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onPlayNext, recentlyPl
 
   const [loading, setLoading] = React.useState(true);
   const [hero, setHero] = React.useState<Track | null>(null);
+  const [personalizedRecs, setPersonalizedRecs] = React.useState<Track[]>([]);
+  const [recoLoading, setRecoLoading] = React.useState(false);
+
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -41,6 +44,41 @@ const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onPlayNext, recentlyPl
     };
     fetchData();
   }, []);
+
+  // Fetch Personalized Recommendations when history changes
+  React.useEffect(() => {
+    if (recentlyPlayed.length === 0) {
+      setPersonalizedRecs([]);
+      return;
+    }
+
+    const fetchPersonalized = async () => {
+      setRecoLoading(true);
+      try {
+        const { getRecommendations } = await import('../services/SaavnService');
+        // Get recommendations based on the most recent track
+        const seedTrack = recentlyPlayed[0];
+        const recs = await getRecommendations(seedTrack.id);
+
+        // Filter out songs already in recently played
+        const filteredRecs = recs.filter(r => !recentlyPlayed.some(rp => rp.id === r.id)).slice(0, 10);
+        setPersonalizedRecs(filteredRecs);
+
+        // If we have a recent track, maybe update hero to something related?
+        // For now, let's keep the hero as the first recommendation if available
+        if (filteredRecs.length > 0) {
+          setHero(filteredRecs[0]);
+        }
+      } catch (e) {
+        console.error("Failed to fetch personalized recommendations:", e);
+      } finally {
+        setRecoLoading(false);
+      }
+    };
+
+    fetchPersonalized();
+  }, [recentlyPlayed]);
+
 
   const handleChartClick = async (chart: any) => {
     setLoadingChartId(chart.id);
@@ -147,7 +185,40 @@ const HomeView: React.FC<HomeViewProps> = ({ onPlayTrack, onPlayNext, recentlyPl
         )}
       </section>
 
+      {/* Personalized Recommendations Section */}
+      {personalizedRecs.length > 0 && (
+        <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-black italic tracking-tighter text-white uppercase">Neural Mix</h2>
+            <div className="flex items-center gap-2">
+              <span className="size-1.5 rounded-full bg-primary animate-pulse" />
+              <p className="text-[10px] font-black text-primary uppercase tracking-widest">Based on your taste</p>
+            </div>
+          </div>
+          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 -mx-2 px-2">
+            {personalizedRecs.map((track) => (
+              <div key={track.id} className="min-w-[160px] max-w-[160px] group">
+                <div className="relative aspect-square rounded-2xl overflow-hidden mb-3 cursor-pointer shadow-xl border border-white/5">
+                  <img src={track.artwork} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onClick={() => onPlayTrack(track, personalizedRecs)} />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button onClick={() => onPlayTrack(track, personalizedRecs)} className="size-10 rounded-full bg-primary flex items-center justify-center hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-white fill-1">play_arrow</span>
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); onPlayNext(track); }} className="size-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white hover:text-black transition-colors">
+                      <span className="material-symbols-outlined text-sm">playlist_play</span>
+                    </button>
+                  </div>
+                </div>
+                <p className="text-sm font-black italic text-white truncate uppercase tracking-tighter mb-0.5">{track.title}</p>
+                <p className="text-[10px] font-black text-white/30 truncate uppercase tracking-widest">{track.artist}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Trending Section */}
+
       <section className="space-y-6">
         <h2 className="text-2xl font-black italic tracking-tighter text-white uppercase">Trending Hits</h2>
         <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 -mx-2 px-2">

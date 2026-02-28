@@ -463,20 +463,18 @@ const App: React.FC = () => {
         if (appState.currentTrack) {
           const resumeTrack = appState.currentTrack;
           const resumeProgress = appState.lastNormalProgress;
-          setTimeout(() => {
-            if (audioEngineRef.current) {
-              audioEngineRef.current.play(resumeTrack).then(() => {
-                if (resumeProgress > 5) {
-                  audioEngineRef.current?.seek(resumeProgress);
-                }
-              }).catch(e => {
-                console.error("Resume playback failed", e);
-                setTimeout(() => audioEngineRef.current?.play(resumeTrack), 500);
-              });
+
+          // Explicitly call handlePlayTrack to ensure full reconstruction of audio state
+          handlePlayTrack(resumeTrack).then(() => {
+            if (resumeProgress > 5) {
+              setTimeout(() => audioEngineRef.current?.seek(resumeProgress), 100);
             }
-          }, 500);
+          }).catch(e => {
+            console.error("Resume playback failed", e);
+          });
         }
       }
+
       prevGymModeRef.current = appState.isGymMode;
     }
   }, [appState.isGymMode, appState.currentTrack, appState.lastNormalProgress]);
