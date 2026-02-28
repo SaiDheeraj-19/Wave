@@ -2,7 +2,11 @@
 import { Track } from '../types';
 import { decryptUrl } from '../utils/saavnDecrypt';
 
-const BASE_URL = import.meta.env.DEV ? '/api/saavn' : 'https://www.jiosaavn.com';
+const isNative = typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform();
+const BASE_URL = (import.meta.env.DEV || (typeof window !== 'undefined' && !isNative))
+    ? '/api/saavn'
+    : 'https://www.jiosaavn.com';
+
 const API_URL = `${BASE_URL}/api.php`;
 
 interface SaavnSong {
@@ -94,11 +98,14 @@ export const getHomePageData = async () => {
             return filtered;
         };
 
+        const trendingSongs = (Array.isArray(trending) ? trending.filter((item: any) => item.type === 'song') : (trending.songs || []));
+        const trendingAlbums = (Array.isArray(trending) ? trending.filter((item: any) => item.type === 'album') : (trending.albums || []));
+
         return {
             charts: Array.isArray(charts) ? filterCharts(charts) : [],
             trending: {
-                songs: filterSongs(trending.songs || []).map(mapSongToTrack),
-                albums: (trending.albums || []).map((al: any) => ({
+                songs: filterSongs(trendingSongs).map(mapSongToTrack),
+                albums: trendingAlbums.map((al: any) => ({
                     id: al.id,
                     title: (al.title || al.name || '').replace(/&quot;/g, '"').replace(/&amp;/g, '&'),
                     image: (al.image || '').replace('50x50', '500x500').replace('150x150', '500x500'),
@@ -106,6 +113,7 @@ export const getHomePageData = async () => {
                 }))
             }
         };
+
     } catch (error) {
         console.error("Failed to get cloud data:", error);
         return { charts: [], trending: { songs: [], albums: [] } };
